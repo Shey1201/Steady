@@ -1,0 +1,11 @@
+{
+  "name": "steady-root",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd steady && npm install",
+    "dev": "cd steady && npm run dev",
+    "build": "cd steady && npm run build",
+    "preview": "cd steady && npm run preview"
+  }
+}
+

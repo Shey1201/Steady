@@ -40,7 +40,7 @@ Steady
 
 ## 快速开始
 
-> 下面命令默认工作目录为 `d:\Project\Steady\steady`（或你本地的项目根目录）。
+> 下面命令默认工作目录为 `d:\Project\Steady`（仓库根目录）。
 
 ### 安装依赖
 
@@ -122,4 +122,3 @@ npm run build
 
 Steady is a reading‑first English learning app built with Vue 3 and Tauri.  
 You highlight words, phrases, or sentences while reading, save them into a corpus, and then review them through an Ebbinghaus‑style spaced repetition system. The app tracks item stability and automatically schedules future reviews, helping you move from short‑term recognition to long‑term mastery.
-
