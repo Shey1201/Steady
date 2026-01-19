@@ -164,6 +164,7 @@ function showAt(rect: DOMRect, text: string) {
 }
 
 function onDocumentMouseDown(event: MouseEvent) {
+  if (props.pinned) return;
   if (!visible.value && !props.pinned) return;
   const target = event.target as Node | null;
   if (!root.value || !target) return;
@@ -173,6 +174,7 @@ function onDocumentMouseDown(event: MouseEvent) {
 }
 
 function onGlobalClick() {
+  if (props.pinned) return;
   const sel = window.getSelection();
   const text = sel?.toString().trim() || "";
   if (!text) {

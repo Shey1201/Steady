@@ -13,9 +13,16 @@ function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+export interface CategoryMeta {
+  color: string;
+  lastUsed: number;
+  description?: string;
+}
+
 export const useLibraryStore = defineStore("library", {
   state: () => ({
     articles: [] as Article[],
+    categoryMeta: {} as Record<string, CategoryMeta>,
   }),
   getters: {
     categories: (s) => {
@@ -23,13 +30,92 @@ export const useLibraryStore = defineStore("library", {
       s.articles.forEach(a => {
         map[a.category] = (map[a.category] || 0) + 1;
       });
-      const list = Object.entries(map).map(([name, count]) => ({ name, count }));
+      
+      // Merge categories from articles and categoryMeta
+      const allNames = new Set([...Object.keys(map), ...Object.keys(s.categoryMeta)]);
+      
+      const list = Array.from(allNames).map(name => ({
+        name,
+        count: map[name] || 0,
+        color: s.categoryMeta[name]?.color || "#94a3b8", // default slate-400
+        lastUsed: s.categoryMeta[name]?.lastUsed || 0,
+        description: s.categoryMeta[name]?.description || "",
+      }));
+      
       const total = s.articles.length;
-      return [{ name: "All", count: total }, ...list];
+      return [
+        { name: "All", count: total, color: "#64748b", lastUsed: Infinity, description: "" }, // slate-500
+        ...list
+      ];
     },
   },
   actions: {
+    createCategory(name: string, description?: string) {
+      if (!this.categoryMeta[name]) {
+        this.getCategoryColor(name);
+      }
+      if (description) {
+        this.categoryMeta[name].description = description;
+      }
+    },
+    getCategoryColor(name: string) {
+      if (!this.categoryMeta[name]) {
+        const colors = [
+          "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981",
+          "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#d946ef",
+          "#f43f5e"
+        ];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        this.categoryMeta[name] = {
+          color: randomColor,
+          lastUsed: Date.now(),
+        };
+      }
+      return this.categoryMeta[name].color;
+    },
+    touchCategory(name: string) {
+       if (!this.categoryMeta[name]) {
+         this.getCategoryColor(name); // ensure color exists
+       }
+       this.categoryMeta[name].lastUsed = Date.now();
+    },
+    deleteCategory(name: string) {
+       // Move articles to "Uncategorized" or delete them?
+       // For now, let's just move them to "Uncategorized" (or "General")
+       this.articles.forEach(a => {
+         if (a.category === name) {
+           a.category = "Uncategorized";
+         }
+       });
+       delete this.categoryMeta[name];
+    },
+    renameCategory(oldName: string, newName: string) {
+      if (this.categoryMeta[newName] || this.articles.some(a => a.category === newName)) {
+        return false; // Already exists
+      }
+      
+      // Copy meta
+      if (this.categoryMeta[oldName]) {
+        this.categoryMeta[newName] = { ...this.categoryMeta[oldName] };
+        delete this.categoryMeta[oldName];
+      } else {
+        // Should not happen if category exists, but safe fallback
+        this.getCategoryColor(newName);
+      }
+
+      // Update articles
+      this.articles.forEach(a => {
+        if (a.category === oldName) {
+          a.category = newName;
+        }
+      });
+      return true;
+    },
+    deleteArticle(id: string) {
+      this.articles = this.articles.filter(a => a.id !== id);
+    },
     importFromText(title: string, category: string, text: string, url?: string) {
+      this.touchCategory(category);
       const paragraphs = text
         .split(/\n{2,}/)
         .map(p => p.trim())

@@ -32,7 +32,7 @@ const emit = defineEmits<{ (e: "open-settings"): void }>();
 
     <!-- Bottom Navigation -->
     <div class="mt-auto flex flex-col gap-4 w-full items-center">
-      <button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-slate-100 transition-colors" @click="ui.toggleQuickLookup()">
+      <button class="quick-lookup-toggle w-10 h-10 rounded-lg flex items-center justify-center hover:bg-slate-100 transition-colors" @click="ui.toggleQuickLookup()">
         <BeakerIcon class="w-6 h-6 text-slate-700" />
       </button>
       <button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-slate-100 transition-colors" @click="emit('open-settings')">

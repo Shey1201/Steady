@@ -315,7 +315,7 @@ function closeDetail() {
                   {{ statusLabel(item.status) }}
                 </span>
               </div>
-              <div class="text-xl font-medium text-slate-800 leading-relaxed italic">"{{ item.text }}"</div>
+              <div class="text-xl font-medium text-slate-800 leading-relaxed">"{{ item.text }}"</div>
               <div class="mt-4 text-slate-500 text-sm">{{ item.translation }}</div>
             </div>
             <div class="flex flex-col gap-2">

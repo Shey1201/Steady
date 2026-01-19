@@ -33,16 +33,16 @@ export async function lookupDictionary(text: string): Promise<string> {
     if (!data || data.length === 0) throw new Error("No data");
 
     const firstResult = data[0];
-    let output = `[${firstResult.phonetic || "no phonetic"}]\n`;
+    let output = "";
     
     firstResult.meanings.slice(0, 2).forEach(m => {
-      output += `\n(${m.partOfSpeech}) ${m.definitions[0].definition}`;
+      output += `\n${m.partOfSpeech}: ${m.definitions[0].definition}\n`;
       if (m.definitions[0].example) {
-        output += `\ne.g. ${m.definitions[0].example}`;
+        output += `\ne.g.: ${m.definitions[0].example}\n`;
       }
     });
 
-    return output;
+    return output.trim();
   } catch (error) {
     console.warn("Dictionary lookup failed:", error);
     throw error;
