@@ -1,0 +1,4 @@
+{
+  "outputDirectory": "steady/dist",
+  "framework": "vite"
+}
