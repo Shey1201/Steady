@@ -13,7 +13,6 @@ import {
   InformationCircleIcon,
   EyeIcon, 
   EyeSlashIcon,
-  TrashIcon,
   ShieldCheckIcon,
   ArrowRightOnRectangleIcon,
   CircleStackIcon
