@@ -10,6 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@ai-sdk/vue": "^3.0.42",
     "@google/generative-ai": "^0.24.1",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",

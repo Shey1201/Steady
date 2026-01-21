@@ -6,20 +6,45 @@ export function getClient() {
 }
 
 export function hasApiKey() {
-  return !!(localStorage.getItem("STEADY_GEMINI_API_KEY") || import.meta.env.VITE_GEMINI_API_KEY);
+  // Always return true to allow backend API fallback
+  return true;
 }
 
 export async function translateText(text: string, type: string = "word", targetLang = "zh") {
-  const client = getClient();
-  if (!client) return "(需要配置 Gemini API Key)";
-  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
   const prompt = `Translate the following ${type} to ${targetLang}. 
 If it's a word, provide its primary meaning and 1-2 common examples.
 If it's a phrase, explain its usage briefly.
 If it's a sentence, provide a natural translation.
 Text: ${text}`;
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  const output = response.text();
-  return output;
+
+  // 1. Try Backend API (Preferred for Dashscope/OpenAI)
+  try {
+    const response = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.text;
+    }
+  } catch (e) {
+    console.warn("Backend API failed, trying client-side fallback...", e);
+  }
+
+  // 2. Fallback to Client-side Gemini (Legacy support)
+  const client = getClient();
+  if (client) {
+    try {
+      const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      return response.text();
+    } catch (e) {
+      console.error("Client-side Gemini also failed", e);
+    }
+  }
+
+  return "(Translation failed. Please configure API Key)";
 }
