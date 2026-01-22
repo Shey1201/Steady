@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Dialog, DialogPanel, DialogTitle, Combobox, ComboboxInput, ComboboxOptions, ComboboxOption, ComboboxButton, TransitionRoot, TransitionChild } from "@headlessui/vue";
+import { Dialog, DialogPanel, DialogTitle, Combobox, ComboboxInput, ComboboxOptions, ComboboxOption, ComboboxButton } from "@headlessui/vue";
 import { CheckIcon, ChevronUpDownIcon, Cog6ToothIcon, PencilIcon, TrashIcon, XMarkIcon } from "@heroicons/vue/20/solid";
 import { ref, computed } from "vue";
 import { useUiStore } from "../stores/ui";
@@ -16,6 +16,53 @@ const isImporting = ref(false);
 const showManager = ref(false);
 const newCategoryName = ref("");
 const newCategoryDesc = ref("");
+
+// Localization
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    importTitle: isZh ? '导入文章' : 'Import Article',
+    pasteText: isZh ? '粘贴文本' : 'Paste Text',
+    fromUrl: isZh ? '从 URL' : 'From URL',
+    clipboard: isZh ? '剪贴板' : 'Clipboard',
+    articleTitle: isZh ? '文章标题' : 'Article Title',
+    category: isZh ? '分类' : 'Category',
+    manageCategories: isZh ? '管理分类' : 'Manage Categories',
+    content: isZh ? '正文内容' : 'Content',
+    url: isZh ? '文章链接' : 'Article URL',
+    importBtn: isZh ? '开始导入' : 'Import Article',
+    importing: isZh ? '导入中...' : 'Importing...',
+    cancel: isZh ? '取消' : 'Cancel',
+    processing: isZh ? '处理中...' : 'Processing...',
+    placeholderTitle: isZh ? '输入标题...' : 'Enter title...',
+    placeholderContent: isZh ? '在此粘贴文章内容...' : 'Paste article content here...',
+    placeholderUrl: isZh ? 'https://example.com/article' : 'https://example.com/article',
+    wordCount: isZh ? '字数' : 'Words',
+    limitWarning: isZh ? '超过 5000 字' : 'Exceeds 5000 words',
+    categoryName: isZh ? '分类名称' : 'Category Name',
+    categoryDesc: isZh ? '描述（可选）' : 'Description (Optional)',
+    addCategory: isZh ? '添加分类' : 'Add Category',
+    edit: isZh ? '编辑' : 'Edit',
+    delete: isZh ? '删除' : 'Delete',
+    confirmDelete: isZh ? '确认删除？' : 'Confirm Delete?',
+    noCategories: isZh ? '未找到分类' : 'No categories found',
+    selectCategory: isZh ? '选择分类' : 'Select Category',
+    recent: isZh ? '最近使用' : 'Recent',
+    otherCategories: isZh ? '其他分类' : 'Other Categories',
+    clipboardHint: isZh ? '切换到目标应用复制文本后点击开始导入' : 'Switch to target app, copy text, then click Import',
+    searchCategories: isZh ? '搜索分类...' : 'Search categories...',
+    close: isZh ? '关闭' : 'Close',
+    add: isZh ? '添加' : 'Add',
+    confirm: isZh ? '确认' : 'Confirm',
+    cancelEdit: isZh ? '取消' : 'Cancel',
+    save: isZh ? '保存' : 'Save',
+    create: isZh ? '创建' : 'Create',
+    rename: isZh ? '重命名' : 'Rename',
+    deleteCategory: isZh ? '删除分类' : 'Delete Category',
+    categoryExists: isZh ? '分类已存在' : 'Category already exists',
+    categoryInUse: isZh ? '分类正在使用中' : 'Category in use',
+  };
+});
 
 const allCategories = computed(() => lib.categories.filter(c => c.name !== "All"));
 
@@ -52,12 +99,11 @@ const deletingCategoryName = ref<string | null>(null);
 const errorCategoryName = ref<string | null>(null);
 const editingName = ref("");
 const editInput = ref<HTMLInputElement | null>(null);
-const managerSearchInput = ref<HTMLInputElement | null>(null);
 
 function createNewCategory() {
   if (newCategoryName.value.trim()) {
     if (lib.categories.some(c => c.name.toLowerCase() === newCategoryName.value.trim().toLowerCase())) {
-        alert("Category already exists.");
+        alert(t.value.categoryExists);
         return;
     }
     lib.createCategory(newCategoryName.value.trim(), newCategoryDesc.value.trim());
@@ -106,7 +152,7 @@ function saveEdit() {
     
     if (newName && newName !== oldName) {
          if (!lib.renameCategory(oldName, newName)) {
-             alert("Category name already exists.");
+             alert(t.value.categoryExists);
              // Don't close edit mode so user can fix it? Or just alert and keep editing?
              // For now, let's keep editing mode.
              return; 
@@ -136,7 +182,7 @@ const wordCount = computed(() => {
 async function submit() {
   if (mode.value === "text") {
     if (wordCount.value > 5000) {
-      alert(`Content exceeds 5000 words (current: ${wordCount.value}). Please shorten it.`);
+      alert(`${t.value.limitWarning} (current: ${wordCount.value}).`);
       return;
     }
     const id = lib.importFromText(title.value || "Untitled", category.value, text.value.trim(), url.value || undefined);
@@ -208,11 +254,11 @@ async function submit() {
     <DialogPanel class="relative bg-white rounded-xl shadow-xl w-[640px] p-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-           <DialogTitle class="text-lg font-semibold">Import Article</DialogTitle>
+           <DialogTitle class="text-lg font-semibold">{{ t.importTitle }}</DialogTitle>
            <button 
              @click="showManager = true"
              class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-             title="Manage Categories"
+             :title="t.manageCategories"
            >
              <Cog6ToothIcon class="w-5 h-5" />
            </button>
@@ -221,25 +267,25 @@ async function submit() {
           <button 
             @click="ui.closeImport"
             class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            title="Close"
+            :title="t.close"
           >
             <span class="text-lg font-bold leading-none">✕</span>
           </button>
         </div>
       </div>
       <div class="mt-4 flex gap-2">
-        <button class="px-3 h-9 rounded-lg" :class="mode==='text' ? 'bg-slate-900 text-white' : 'bg-slate-100'" @click="mode='text'">Text</button>
-        <button class="px-3 h-9 rounded-lg" :class="mode==='url' ? 'bg-slate-900 text-white' : 'bg-slate-100'" @click="mode='url'">URL</button>
-        <button class="px-3 h-9 rounded-lg" :class="mode==='clipboard' ? 'bg-slate-900 text-white' : 'bg-slate-100'" @click="mode='clipboard'">Clipboard</button>
+        <button class="px-3 h-9 rounded-lg" :class="mode==='text' ? 'bg-slate-900 text-white' : 'bg-slate-100'" @click="mode='text'">{{ t.pasteText }}</button>
+        <button class="px-3 h-9 rounded-lg" :class="mode==='url' ? 'bg-slate-900 text-white' : 'bg-slate-100'" @click="mode='url'">{{ t.fromUrl }}</button>
+        <button class="px-3 h-9 rounded-lg" :class="mode==='clipboard' ? 'bg-slate-900 text-white' : 'bg-slate-100'" @click="mode='clipboard'">{{ t.clipboard }}</button>
       </div>
       <div class="mt-4 space-y-3">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Title</label>
-          <input class="w-full h-10 rounded-lg border border-slate-300 px-3" placeholder="Article Title" v-model="title" />
+          <label class="block text-sm font-medium text-slate-700 mb-1">{{ t.articleTitle }}</label>
+          <input class="w-full h-10 rounded-lg border border-slate-300 px-3" :placeholder="t.placeholderTitle" v-model="title" />
         </div>
         
         <div class="flex items-center justify-between">
-          <label class="text-sm font-medium text-slate-700">Category</label>
+          <label class="text-sm font-medium text-slate-700">{{ t.category }}</label>
         </div>
 
         <!-- Select Existing Category Combobox -->
@@ -254,7 +300,7 @@ async function submit() {
                       class="w-full h-10 border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
                       :displayValue="(cat) => (cat as string)"
                       @change="query = $event.target.value"
-                      placeholder="Select Category"
+                      :placeholder="t.selectCategory"
                     />
                     <ComboboxButton
                       class="absolute inset-y-0 right-0 flex items-center pr-2"
@@ -302,14 +348,14 @@ async function submit() {
                       </ComboboxOption>
                       
                       <div v-if="filteredCategories.length === 0" class="px-4 py-2 text-sm text-slate-500">
-                        No categories found.
+                        {{ t.noCategories }}
                       </div>
                     </template>
 
                     <!-- Default View: Recents + All -->
                     <template v-else>
                       <!-- Recents -->
-                      <div v-if="recentCategories.length > 0" class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 sticky top-0 z-10">Recent</div>
+                      <div v-if="recentCategories.length > 0" class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 sticky top-0 z-10">{{ t.recent }}</div>
                       <ComboboxOption
                         v-for="cat in recentCategories"
                         :key="cat.name"
@@ -342,7 +388,7 @@ async function submit() {
                       </ComboboxOption>
 
                       <!-- All Categories -->
-                      <div class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 mt-1 sticky top-0 z-10">Other Categories</div>
+                      <div class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 mt-1 sticky top-0 z-10">{{ t.otherCategories }}</div>
                       <ComboboxOption
                         v-for="cat in otherCategories"
                         :key="cat.name"
@@ -377,176 +423,161 @@ async function submit() {
                   </ComboboxOptions>
                 </div>
               </Combobox>
+              
+              <button 
+                @click="showManager = true"
+                class="px-3 h-10 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
+                :title="t.manageCategories"
+              >
+                <Cog6ToothIcon class="w-5 h-5" />
+              </button>
            </div>
         </div>
 
-        <input v-if="mode==='url'" class="w-full h-10 rounded-lg border border-slate-300 px-3" placeholder="https://..." v-model="url" />
-        <textarea v-if="mode==='text'" class="w-full h-40 rounded-lg border border-slate-300 px-3 py-2" placeholder="Paste article content..." v-model="text" />
-        <div v-if="mode==='text'" class="text-right text-xs" :class="wordCount > 5000 ? 'text-red-500 font-bold' : 'text-slate-400'">
-          {{ wordCount }} / 5000 words
+        <!-- Mode Content -->
+        <div v-if="mode === 'text'">
+          <label class="block text-sm font-medium text-slate-700 mb-1">
+             {{ t.content }}
+             <span class="text-xs font-normal text-slate-500 ml-1">
+               {{ wordCount }} {{ t.wordCount }} <span v-if="wordCount > 5000" class="text-red-500">({{ t.limitWarning }})</span>
+             </span>
+          </label>
+          <textarea 
+            v-model="text" 
+            class="w-full h-48 rounded-lg border border-slate-300 p-3 text-sm font-mono" 
+            :placeholder="t.placeholderContent"
+          ></textarea>
         </div>
-        <div v-if="mode==='clipboard'" class="text-xs text-slate-500">切换到目标应用复制文本后点击 Import</div>
+
+        <div v-if="mode === 'url'">
+          <label class="block text-sm font-medium text-slate-700 mb-1">{{ t.url }}</label>
+          <input 
+            v-model="url" 
+            class="w-full h-10 rounded-lg border border-slate-300 px-3 text-blue-600 font-mono text-sm" 
+            :placeholder="t.placeholderUrl"
+          />
+          <p class="mt-2 text-xs text-slate-500">
+            * Note: Some websites may block automated access.
+          </p>
+        </div>
+
+        <div v-if="mode === 'clipboard'" class="flex flex-col items-center justify-center py-8 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50">
+          <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-3">
+            <span class="text-xl">📋</span>
+          </div>
+          <p class="font-medium text-slate-900">{{ t.clipboard }}</p>
+          <p class="text-xs text-slate-500 mt-1 max-w-[200px] text-center">{{ t.clipboardHint }}</p>
+        </div>
+
       </div>
-      <div class="mt-4 flex justify-end gap-2">
-        <button class="px-4 h-10 rounded-lg border border-slate-300" @click="ui.closeImport">Cancel</button>
+
+      <div class="mt-6 flex justify-end gap-3">
         <button 
-          class="px-4 h-10 rounded-lg bg-slate-900 text-white disabled:bg-slate-400" 
-          @click="submit"
-          :disabled="isImporting"
+          @click="ui.closeImport"
+          class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
         >
-          {{ isImporting ? 'Importing...' : 'Import' }}
+          {{ t.cancel }}
+        </button>
+        <button 
+          @click="submit"
+          :disabled="isImporting || !title || (mode==='text' && !text) || (mode==='url' && !url)"
+          class="px-6 py-2 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <span v-if="isImporting" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          {{ isImporting ? t.processing : t.importBtn }}
         </button>
       </div>
-      <button class="absolute top-3 right-3 text-slate-400" @click="ui.closeImport" v-if="false">✕</button>
-    </DialogPanel>
 
-  <!-- Category Manager Dialog -->
-  <TransitionRoot appear :show="showManager" as="template">
-    <Dialog as="div" @close="showManager = false" class="fixed inset-0 z-[60]" :initialFocus="managerSearchInput">
-      <TransitionChild
-        as="template"
-        enter="duration-300 ease-out"
-        enter-from="opacity-0"
-        enter-to="opacity-100"
-        leave="duration-200 ease-in"
-        leave-from="opacity-100"
-        leave-to="opacity-0"
-      >
-        <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
-      </TransitionChild>
+      <!-- Category Manager Overlay -->
+      <div v-if="showManager" class="absolute inset-0 bg-white z-10 flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b border-slate-100">
+          <h3 class="font-bold text-lg">{{ t.manageCategories }}</h3>
+          <button @click="showManager = false" class="p-1 hover:bg-slate-100 rounded-full">
+            <XMarkIcon class="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+        
+        <div class="p-4 border-b border-slate-100 bg-slate-50">
+          <div class="flex gap-2 mb-2">
+            <input 
+              v-model="newCategoryName" 
+              class="flex-1 h-9 rounded-lg border border-slate-300 px-3 text-sm" 
+              :placeholder="t.categoryName"
+              @keyup.enter="createNewCategory"
+            />
+            <button 
+              @click="createNewCategory"
+              :disabled="!newCategoryName"
+              class="px-3 bg-blue-600 text-white rounded-lg text-sm font-bold disabled:opacity-50"
+            >
+              {{ t.add }}
+            </button>
+          </div>
+          <input 
+            v-model="newCategoryDesc" 
+            class="w-full h-9 rounded-lg border border-slate-300 px-3 text-sm" 
+            :placeholder="t.categoryDesc"
+          />
+        </div>
 
-      <div class="fixed inset-0 flex items-center justify-center p-4">
-        <TransitionChild
-          as="template"
-          enter="duration-300 ease-out"
-          enter-from="opacity-0 scale-95"
-          enter-to="opacity-100 scale-100"
-          leave="duration-200 ease-in"
-          leave-from="opacity-100 scale-100"
-          leave-to="opacity-0 scale-95"
-        >
-          <DialogPanel class="w-full max-w-md rounded-xl bg-white shadow-2xl relative max-h-[80vh] flex flex-col overflow-hidden">
-            <!-- Header -->
-            <div class="p-6 pb-2 flex-shrink-0">
-                <button 
-                  @click="showManager = false"
-                  class="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="Close"
-                >
-                  <span class="text-lg font-bold leading-none">✕</span>
-                </button>
-                <DialogTitle class="text-lg font-semibold mb-4">Manage Categories</DialogTitle>
-                
-                <!-- Search Bar -->
-                <div class="relative">
-                    <input 
-                        ref="managerSearchInput"
-                        v-model="managerQuery"
-                        class="w-full h-9 rounded border border-slate-300 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                        placeholder="Search categories..."
-                    />
-                    <div class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-                        <!-- Simple search icon (glass) -->
-                        <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                </div>
+        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+          <div class="px-2 mb-2">
+             <input 
+               v-model="managerQuery" 
+               class="w-full h-8 rounded-lg border border-slate-200 px-3 text-xs bg-slate-50" 
+               :placeholder="t.searchCategories" 
+             />
+          </div>
+
+          <div 
+            v-for="cat in filteredManagerCategories" 
+            :key="cat.name"
+            class="group flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100"
+          >
+            <div class="flex-1 min-w-0 mr-2">
+              <div v-if="editingCategoryName === cat.name" class="flex gap-1">
+                  <input 
+                    ref="editInput"
+                    v-model="editingName" 
+                    class="flex-1 h-7 rounded border border-blue-300 px-2 text-sm"
+                    @keyup.enter="saveEdit"
+                    @keyup.esc="cancelEdit"
+                    @blur="saveEdit" 
+                  />
+              </div>
+              <div v-else class="flex flex-col cursor-pointer" @click="selectCategoryInManager(cat.name)">
+                <span class="font-medium text-sm truncate" :class="{'text-blue-600': category === cat.name}">{{ cat.name }}</span>
+                <span class="text-xs text-slate-400 truncate" v-if="cat.description">{{ cat.description }}</span>
+              </div>
             </div>
             
-            <!-- List View -->
-            <div class="flex-grow overflow-auto min-h-0 px-6 py-2">
-                <div class="space-y-0 divide-y divide-slate-100 border-t border-b border-slate-100">
-                    <div 
-                        v-for="cat in filteredManagerCategories" 
-                        :key="cat.name" 
-                        class="flex items-center justify-between p-3 -mx-3 hover:bg-slate-50 transition-colors group rounded-lg cursor-pointer"
-                        :style="{ backgroundColor: category === cat.name ? '#e8f4fd' : '' }"
-                        @click="selectCategoryInManager(cat.name)"
-                    >
-                        <div class="flex items-center gap-3 overflow-hidden flex-grow">
-                            <!-- Removed color icon as requested -->
-                            <div class="flex flex-col min-w-0 flex-grow">
-                                <input 
-                                    v-if="editingCategoryName === cat.name"
-                                    v-model="editingName"
-                                    @keydown.enter="saveEdit"
-                                    @keydown.esc="cancelEdit"
-                                    @click.stop
-                                    class="w-full h-7 rounded border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                                    :ref="(el) => { if (el) (el as HTMLInputElement).focus() }"
-                                />
-                                <span v-else class="font-medium truncate" :class="category === cat.name ? 'text-blue-700 font-bold' : 'text-slate-900'">{{ cat.name }}</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Actions -->
-                        <div class="flex items-center gap-1 transition-opacity" :class="{'opacity-100': editingCategoryName === cat.name || deletingCategoryName === cat.name || errorCategoryName === cat.name, 'opacity-0 group-hover:opacity-100': editingCategoryName !== cat.name && deletingCategoryName !== cat.name && errorCategoryName !== cat.name}">
-                            
-                            <!-- Error State -->
-                            <template v-if="errorCategoryName === cat.name">
-                                <span class="text-xs text-red-500 font-bold whitespace-nowrap mr-2">Has articles!</span>
-                            </template>
-
-                            <!-- Editing State -->
-                            <template v-else-if="editingCategoryName === cat.name">
-                                <button @click.stop="saveEdit" class="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors" title="Save">
-                                    <CheckIcon class="w-4 h-4" />
-                                </button>
-                                <button @click.stop="cancelEdit" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Cancel">
-                                    <XMarkIcon class="w-4 h-4" />
-                                </button>
-                            </template>
-
-                            <!-- Deleting State -->
-                            <template v-else-if="deletingCategoryName === cat.name">
-                                <span class="text-xs text-red-500 font-medium mr-1">Sure?</span>
-                                <button @click.stop="confirmDelete" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Confirm Delete">
-                                    <CheckIcon class="w-4 h-4" />
-                                </button>
-                                <button @click.stop="cancelDelete" class="p-1.5 text-slate-400 hover:bg-slate-100 rounded transition-colors" title="Cancel">
-                                    <XMarkIcon class="w-4 h-4" />
-                                </button>
-                            </template>
-
-                            <!-- Normal State -->
-                            <template v-else>
-                                <button @click.stop="startEditing(cat)" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition-colors" title="Edit">
-                                    <PencilIcon class="w-4 h-4" />
-                                </button>
-                                <button @click.stop="promptDelete(cat.name)" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
-                                    <TrashIcon class="w-4 h-4" />
-                                </button>
-                            </template>
-                        </div>
-                    </div>
-                    <div v-if="filteredManagerCategories.length === 0" class="text-center py-8 text-slate-500 text-sm">
-                        {{ managerQuery ? 'No matching categories.' : 'No categories found.' }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add Footer -->
-            <div class="p-6 pt-4 bg-white flex-shrink-0 z-10">
-                <div class="flex gap-2">
-                    <input 
-                      v-model="newCategoryName" 
-                      class="flex-grow h-10 rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                      placeholder="New Category Name"
-                      @keydown.enter="createNewCategory"
-                    />
-                    <button 
-                        @click="createNewCategory" 
-                        class="px-4 h-10 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium text-sm flex-shrink-0"
-                    >
-                        Add
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+               <template v-if="editingCategoryName !== cat.name">
+                  <button @click="startEditing(cat)" class="p-1 text-slate-400 hover:text-blue-600" :title="t.rename">
+                    <PencilIcon class="w-4 h-4" />
+                  </button>
+                  <div class="relative">
+                    <button @click="promptDelete(cat.name)" class="p-1 text-slate-400 hover:text-red-600" :title="t.delete">
+                        <TrashIcon class="w-4 h-4" />
                     </button>
-                </div>
+                    <!-- Delete Confirmation Popover -->
+                    <div v-if="deletingCategoryName === cat.name" class="absolute right-0 top-full mt-1 bg-white shadow-xl border border-red-100 rounded-lg p-3 z-20 w-48">
+                        <p class="text-xs font-bold text-red-600 mb-2">{{ t.confirmDelete }}</p>
+                        <div class="flex gap-2 justify-end">
+                            <button @click="cancelDelete" class="text-xs text-slate-500 hover:underline">{{ t.cancel }}</button>
+                            <button @click="confirmDelete" class="px-2 py-1 bg-red-600 text-white text-xs rounded font-bold">{{ t.confirm }}</button>
+                        </div>
+                    </div>
+                    <!-- Error Tooltip -->
+                    <div v-if="errorCategoryName === cat.name" class="absolute right-0 top-full mt-1 bg-red-600 text-white text-xs rounded px-2 py-1 z-20 whitespace-nowrap">
+                        {{ t.categoryInUse }}
+                    </div>
+                  </div>
+               </template>
             </div>
-          </DialogPanel>
-        </TransitionChild>
+          </div>
+        </div>
       </div>
-    </Dialog>
-  </TransitionRoot>
+    </DialogPanel>
   </Dialog>
 </template>

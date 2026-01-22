@@ -1,4 +1,6 @@
 import { defineStore } from "pinia";
+import { generateAnalysis } from "../services/ai";
+import { useUiStore } from "./ui";
 
 export type CorpusType = "word" | "phrase" | "sentence";
 
@@ -21,11 +23,54 @@ export interface CorpusItem {
   stability: number;
   ef?: number;
   interval?: number;
+  
+  // New structured analysis fields
+  simpleAnalysis?: {
+    definition: string;
+    phonetic?: string;
+    pos?: string;
+  };
+  fullAiReport?: {
+    essential?: {
+      meaning: string;
+      definition: string;
+      gist: string; // New: 15-word summary
+    };
+    contextAnalysis?: {
+      interpretation: string;
+      breakdown: string;
+      logicGraph?: string; // New: Sentence logic graph
+    };
+    syntax?: {
+      collocations: string[];
+      usage: string;
+    };
+    corpus?: {
+      synonyms: string[];
+      comparison: string;
+      mnemonic: string;
+      tag: string;
+      challenge: {
+        question: string;
+        options: string[];
+        answer: string;
+      };
+    };
+    knowledge?: {
+      background: string;
+      expansion?: string;
+    };
+    // Legacy fields for backward compatibility
+    coreEssence?: any;
+    structure?: any;
+    examples?: any;
+    contextComparison?: string;
+  };
   analysis?: {
-    collocations?: string[];
-    nuance?: string;
-    grammar?: string;
-    logicTemplate?: string;
+    collocations: string[];
+    nuance: string;
+    grammar: string;
+    logicTemplate: string;
   };
 }
 
@@ -57,8 +102,10 @@ export const useCorpusStore = defineStore("corpus", {
     },
   },
   actions: {
-    addItem(payload: Omit<CorpusItem, "id" | "createdAt" | "reviewCount" | "stability" | "ef" | "interval">) {
+    addItem(payload: Omit<CorpusItem, "id" | "createdAt" | "reviewCount" | "stability" | "ef" | "interval"> & { backgroundAnalysis?: boolean }) {
       const id = uid();
+      const { backgroundAnalysis, ...itemData } = payload;
+      
       this.items.unshift({
         id,
         createdAt: Date.now(),
@@ -68,9 +115,26 @@ export const useCorpusStore = defineStore("corpus", {
         status: "new",
         ef: 2.5,
         interval: 0,
-        ...payload,
+        ...itemData,
       });
+
+      if (backgroundAnalysis) {
+        this.triggerBackgroundAnalysis(id, itemData.text, itemData.context || "", itemData.type);
+      }
+
       return id;
+    },
+    async triggerBackgroundAnalysis(id: string, text: string, context: string, type: CorpusType) {
+      const ui = useUiStore();
+      try {
+        const result = await generateAnalysis(text, context, ui.language);
+        this.updateItem(id, { 
+          fullAiReport: result.fullAiReport,
+          simpleAnalysis: result.simpleAnalysis
+        });
+      } catch (e) {
+        console.error("Background analysis failed:", e);
+      }
     },
     toggleFavorite(id: string) {
       const item = this.items.find((i) => i.id === id);
@@ -145,6 +209,15 @@ export const useCorpusStore = defineStore("corpus", {
         item.analysis = analysis;
       }
     },
+    updateItem(id: string, payload: Partial<Omit<CorpusItem, "id" | "createdAt">>) {
+      const index = this.items.findIndex((i) => i.id === id);
+      if (index === -1) return;
+      
+      this.items[index] = {
+        ...this.items[index],
+        ...payload,
+      };
+    },
     removeItem(id: string) {
       this.items = this.items.filter((i) => i.id !== id);
     },
@@ -157,11 +230,25 @@ export const useCorpusStore = defineStore("corpus", {
           text: "resilient",
           translation: "有弹性的；能复原的",
           note: "Able to withstand or recover quickly from difficult conditions.",
-          analysis: {
-            collocations: ["highly resilient", "resilient economy", "resilient spirit"],
-            nuance: "Focuses on the ability to bounce back rather than just being strong.",
-            grammar: "Adjective, often used with 'to' or 'against'.",
-            logicTemplate: "Subject + be + resilient + (in the face of + obstacle)"
+          simpleAnalysis: {
+            definition: "Able to withstand or recover quickly from difficult conditions.",
+            pos: "adj.",
+            phonetic: "/rɪˈzɪliənt/"
+          },
+          fullAiReport: {
+            coreEssence: {
+              deepDefinition: "Focuses on the ability to bounce back rather than just being strong.",
+              synonyms: "tough, flexible, hardy"
+            },
+            structure: {
+              collocations: ["highly resilient", "resilient economy", "resilient spirit"],
+              sentenceBreakdown: "Subject + be + resilient + (in the face of + obstacle)"
+            },
+            knowledge: {
+              background: "Often used in psychology and economics.",
+              expansion: "Resilience theory"
+            },
+            examples: ["The economy proved to be resilient."]
           }
         },
         {
@@ -169,11 +256,25 @@ export const useCorpusStore = defineStore("corpus", {
           text: "ubiquitous",
           translation: "无处不在的",
           note: "Present, appearing, or found everywhere.",
-          analysis: {
-            collocations: ["ubiquitous influence", "become ubiquitous", "ubiquitous technology"],
-            nuance: "Often implies a sense of being inescapable or common.",
-            grammar: "Adjective.",
-            logicTemplate: "X is ubiquitous in Y."
+          simpleAnalysis: {
+            definition: "Present, appearing, or found everywhere.",
+            pos: "adj.",
+            phonetic: "/juːˈbɪkwɪtəs/"
+          },
+          fullAiReport: {
+            coreEssence: {
+              deepDefinition: "Often implies a sense of being inescapable or common.",
+              synonyms: "omnipresent, everywhere, pervasive"
+            },
+            structure: {
+              collocations: ["ubiquitous influence", "become ubiquitous", "ubiquitous technology"],
+              sentenceBreakdown: "X is ubiquitous in Y."
+            },
+            knowledge: {
+              background: "From Latin ubique 'everywhere'.",
+              expansion: "Ubiquitous computing"
+            },
+            examples: ["Mobile phones are now ubiquitous."]
           }
         },
         {
@@ -182,11 +283,24 @@ export const useCorpusStore = defineStore("corpus", {
           translation: "在最后关头",
           note: "At the latest possible moment.",
           context: "The deal was signed at the eleventh hour.",
-          analysis: {
-            collocations: ["decision at the eleventh hour", "rescued at the eleventh hour"],
-            nuance: "Suggests a sense of urgency and near-miss failure.",
-            grammar: "Prepositional phrase used as an adverbial.",
-            logicTemplate: "Action + happen + at the eleventh hour."
+          simpleAnalysis: {
+            definition: "At the latest possible moment.",
+            pos: "phrase"
+          },
+          fullAiReport: {
+            coreEssence: {
+              deepDefinition: "Suggests a sense of urgency and near-miss failure.",
+              synonyms: "last minute, just in time"
+            },
+            structure: {
+              collocations: ["decision at the eleventh hour", "rescued at the eleventh hour"],
+              sentenceBreakdown: "Action + happen + at the eleventh hour."
+            },
+            knowledge: {
+              background: "Biblical origin (Parable of the Workers in the Vineyard).",
+              expansion: "Procrastination"
+            },
+            examples: ["He postponed the trip at the eleventh hour."]
           }
         },
         {
@@ -195,11 +309,24 @@ export const useCorpusStore = defineStore("corpus", {
           translation: "搞错方向；找错人",
           note: "To be wrong about the reason for something or the way to achieve something.",
           context: "If you think I'm the one who stole your bike, you're barking up the wrong tree.",
-          analysis: {
-            collocations: ["completely barking up the wrong tree"],
-            nuance: "Informal, often used to point out a mistake in reasoning.",
-            grammar: "Idiomatic expression, usually used in progressive tenses.",
-            logicTemplate: "Someone is barking up the wrong tree (by doing X)."
+          simpleAnalysis: {
+            definition: "To be wrong about the reason for something.",
+            pos: "idiom"
+          },
+          fullAiReport: {
+            coreEssence: {
+              deepDefinition: "Informal, often used to point out a mistake in reasoning.",
+              synonyms: "misguided, mistaken"
+            },
+            structure: {
+              collocations: ["completely barking up the wrong tree"],
+              sentenceBreakdown: "Someone is barking up the wrong tree (by doing X)."
+            },
+            knowledge: {
+              background: "Hunting dogs barking at a tree where the prey is no longer present.",
+              expansion: "Idioms about mistakes"
+            },
+            examples: ["Police are barking up the wrong tree."]
           }
         },
         {
@@ -208,9 +335,24 @@ export const useCorpusStore = defineStore("corpus", {
           translation: "成功不是终点，失败也不是终结：唯有继续前行的勇气才是最重要的。",
           note: "Attributed to Winston Churchill.",
           isFavorite: true,
-          analysis: {
-            grammar: "Parallel structure with colons for emphasis.",
-            logicTemplate: "A is not X, B is not Y: it is C that counts."
+          simpleAnalysis: {
+            definition: "Attributed to Winston Churchill.",
+            pos: "quote"
+          },
+          fullAiReport: {
+            coreEssence: {
+              deepDefinition: "Emphasizes persistence over results.",
+              synonyms: "Perseverance"
+            },
+            structure: {
+              collocations: [],
+              sentenceBreakdown: "A is not X, B is not Y: it is C that counts."
+            },
+            knowledge: {
+              background: "Winston Churchill quote.",
+              expansion: "Stoicism"
+            },
+            examples: []
           }
         },
         {
@@ -219,9 +361,24 @@ export const useCorpusStore = defineStore("corpus", {
           translation: "在困难的中心，往往蕴藏着机遇。",
           note: "Attributed to Albert Einstein.",
           isFavorite: true,
-          analysis: {
-            grammar: "Inverted sentence structure for poetic effect.",
-            logicTemplate: "In the middle of [Challenge] lies [Benefit]."
+          simpleAnalysis: {
+            definition: "Attributed to Albert Einstein.",
+            pos: "quote"
+          },
+          fullAiReport: {
+            coreEssence: {
+              deepDefinition: "Optimistic view of challenges.",
+              synonyms: "Optimism"
+            },
+            structure: {
+              collocations: [],
+              sentenceBreakdown: "In the middle of [Challenge] lies [Benefit]."
+            },
+            knowledge: {
+              background: "Albert Einstein quote.",
+              expansion: "Growth Mindset"
+            },
+            examples: []
           }
         }
       ];

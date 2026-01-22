@@ -11,11 +11,10 @@ import {
   AdjustmentsHorizontalIcon,
   BellIcon,
   InformationCircleIcon,
-  EyeIcon, 
-  EyeSlashIcon,
   ShieldCheckIcon,
   ArrowRightOnRectangleIcon,
-  CircleStackIcon
+  CircleStackIcon,
+  CheckCircleIcon
 } from "@heroicons/vue/24/outline";
 
 const emit = defineEmits<{ (e: "close"): void }>();
@@ -25,31 +24,82 @@ const writing = useWritingStore();
 const ui = useUiStore();
 const userStore = useUserStore();
 
+// Localization
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    // Sidebar
+    settings: isZh ? '设置' : 'Settings',
+    account: isZh ? '账户' : 'Account',
+    general: isZh ? '通用' : 'General',
+    notify: isZh ? '通知' : 'Notifications',
+    storage: isZh ? '存储与数据' : 'Storage & Data',
+    about: isZh ? '关于' : 'About',
+    signOut: isZh ? '退出登录' : 'Sign Out',
+    
+    // Account
+    freePlan: isZh ? '免费版' : 'Free Plan',
+    accountStatus: isZh ? '账户状态' : 'Account Status',
+    bound: isZh ? '已绑定' : 'BOUND',
+    unbound: isZh ? '未绑定' : 'UNBOUND',
+    bindHint: isZh ? '绑定微信账号以启用每日金句、学习报告和打卡提醒。' : 'Bind your WeChat account to enable Daily Quotes, Learning Reports, and Check-in Reminders.',
+    bindBtn: isZh ? '绑定微信' : 'Bind WeChat Account',
+    unbindBtn: isZh ? '解绑账号' : 'Unbind Account',
+    
+    // General
+    aiTitle: isZh ? 'AI 配置' : 'AI Configuration',
+    aiHint: isZh ? '配置 AI 模型（OpenAI 兼容）' : 'Configure AI Model (OpenAI Compatible)',
+    expand: isZh ? '展开' : 'Expand',
+    collapse: isZh ? '收起' : 'Collapse',
+    geminiKey: isZh ? 'API Key' : 'API Key',
+    geminiHint: isZh ? '留空以使用内置默认 Key' : 'Leave empty to use the built-in default key.',
+    envKeyActive: isZh ? '内置 Key 已激活' : 'Built-in Key Active',
+    baseUrlHint: isZh ? '例如: https://api.openai.com/v1 (留空则使用 Gemini 默认)' : 'e.g. https://api.openai.com/v1 (Leave empty for Gemini default)',
+    clipboard: isZh ? '剪贴板监听' : 'Clipboard Monitor',
+    clipboardHint: isZh ? '自动检测其他应用复制的文本' : 'Auto-detect copied text from other apps',
+    language: isZh ? '语言' : 'Language',
+    languageHint: isZh ? '设置界面和翻译语言' : 'Display language for interface and translation',
+    
+    // Notifications
+    dailyQuote: isZh ? '每日金句' : 'Daily Quote',
+    dailyQuoteHint: isZh ? '每天早上推送励志金句' : 'Push a motivational quote every morning',
+    learningReport: isZh ? '学习报告' : 'Learning Report',
+    learningReportHint: isZh ? '每周阅读进度总结' : 'Weekly summary of your reading progress',
+    checkIn: isZh ? '打卡提醒' : 'Check-in Reminder',
+    checkInHint: isZh ? '每日提醒保持连胜' : 'Daily reminder to keep your streak',
+    bindNotifyHint: isZh ? '请在账户标签页绑定微信以启用通知。' : 'Please bind your WeChat account in the Account tab to enable notifications.',
+    
+    // Storage
+    clearData: isZh ? '清除数据' : 'Clear Data',
+    localOnly: isZh ? '仅本地' : 'Local Only',
+    clearHint: isZh ? '永久删除所有文章、历史记录和设置。此操作无法撤销。' : 'Permanently delete all articles, history, and settings. This action cannot be undone.',
+    clearBtn: isZh ? '清除所有数据' : 'Clear All Data',
+    confirmText: isZh ? '确定吗？这将清除所有内容并重置应用。' : 'Are you absolutely sure? This will wipe everything and reset the app.',
+    confirmBtn: isZh ? '是的，删除所有' : 'Yes, Delete Everything',
+    cancel: isZh ? '取消' : 'Cancel',
+    clearSuccess: isZh ? '所有数据已清除。应用将重置。' : 'All data has been cleared. The app will now reset.',
+    
+    // About
+    slogan: isZh ? '极简阅读与学习' : 'Minimalist Reading & Learning',
+    rights: isZh ? '© 2024 Steady App. 保留所有权利。' : '© 2024 Steady App. All rights reserved.',
+  };
+});
+
 // Navigation State
 const activeTab = ref("account");
 
-const navigation = [
-  { id: 'account', name: 'Account', icon: UserIcon },
-  { id: 'general', name: 'General', icon: AdjustmentsHorizontalIcon },
-  { id: 'notify', name: 'Notifications', icon: BellIcon },
-  { id: 'storage', name: 'Storage & Data', icon: CircleStackIcon },
-  { id: 'about', name: 'About', icon: InformationCircleIcon },
-];
+const navigation = computed(() => [
+  { id: 'account', name: t.value.account, icon: UserIcon },
+  { id: 'general', name: t.value.general, icon: AdjustmentsHorizontalIcon },
+  { id: 'notify', name: t.value.notify, icon: BellIcon },
+  { id: 'storage', name: t.value.storage, icon: CircleStackIcon },
+  { id: 'about', name: t.value.about, icon: InformationCircleIcon },
+]);
 
-// Gemini API Key State
-const apiKey = ref<string>(localStorage.getItem("STEADY_GEMINI_API_KEY") || "");
-const showApiKey = ref(false);
+import { ChevronDownIcon } from "@heroicons/vue/24/outline";
 
-function updateKey(v: string) {
-  apiKey.value = v;
-  try { 
-    if (v) {
-      localStorage.setItem("STEADY_GEMINI_API_KEY", v); 
-    } else {
-      localStorage.removeItem("STEADY_GEMINI_API_KEY");
-    }
-  } catch {}
-}
+// AI Configuration State (Now managed by Backend)
+const showAiConfig = ref(false);
 
 // Data Management State
 const confirmClear = ref(false);
@@ -60,10 +110,9 @@ function clearAllData() {
   writing.drafts = [];
   try { localStorage.clear(); } catch {}
   ui.closeQuickLookup();
-  apiKey.value = "";
   userStore.unbindWechat();
   userStore.logout();
-  alert("All data has been cleared. The app will now reset.");
+  alert(t.value.clearSuccess);
   window.location.reload();
 }
 
@@ -112,7 +161,7 @@ function handleLogout() {
               <!-- Sidebar -->
               <div class="w-48 bg-slate-100 border-r border-slate-200 flex flex-col">
                 <div class="p-6 pb-4">
-                  <h2 class="text-lg font-bold text-slate-800">Settings</h2>
+                  <h2 class="text-lg font-bold text-slate-800">{{ t.settings }}</h2>
                 </div>
                 <nav class="flex-1 px-3 space-y-1">
                   <button
@@ -129,7 +178,7 @@ function handleLogout() {
                 <div class="p-4 border-t border-slate-200">
                   <button @click="handleLogout" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
                     <ArrowRightOnRectangleIcon class="w-4 h-4" />
-                    Sign Out
+                    {{ t.signOut }}
                   </button>
                 </div>
               </div>
@@ -147,7 +196,7 @@ function handleLogout() {
                   
                   <!-- Account Tab -->
                   <div v-if="activeTab === 'account'" class="space-y-6">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Account</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">{{ t.account }}</h3>
                     
                     <!-- User Info Card (Image 2 Style) -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -159,7 +208,7 @@ function handleLogout() {
                           <div>
                             <div class="flex items-center gap-2">
                               <h4 class="font-bold text-slate-900 text-lg">{{ userStore.user?.name || 'User' }}</h4>
-                              <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-bold tracking-wide uppercase border border-slate-200">Free Plan</span>
+                              <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-bold tracking-wide uppercase border border-slate-200">{{ t.freePlan }}</span>
                             </div>
                             <p class="text-sm text-slate-500 mt-0.5">{{ userStore.user?.email || 'user@example.com' }}</p>
                           </div>
@@ -168,14 +217,14 @@ function handleLogout() {
 
                       <div class="mt-6 pt-6 border-t border-slate-100">
                         <div class="flex items-center justify-between mb-3">
-                          <span class="text-sm font-medium text-slate-600">Account Status</span>
+                          <span class="text-sm font-medium text-slate-600">{{ t.accountStatus }}</span>
                           <span class="text-xs font-bold px-2 py-0.5 rounded" :class="userStore.wechat.isBound ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'">
-                            {{ userStore.wechat.isBound ? 'BOUND' : 'UNBOUND' }}
+                            {{ userStore.wechat.isBound ? t.bound : t.unbound }}
                           </span>
                         </div>
                         
                         <div v-if="!userStore.wechat.isBound" class="bg-slate-50 rounded-lg p-3 text-xs text-slate-500 mb-4 leading-relaxed">
-                          Bind your WeChat account to enable Daily Quotes, Learning Reports, and Check-in Reminders.
+                          {{ t.bindHint }}
                         </div>
 
                         <button 
@@ -183,14 +232,14 @@ function handleLogout() {
                           @click="userStore.bindWechat()"
                           class="w-full py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-bold shadow-sm shadow-emerald-100"
                         >
-                          Bind WeChat Account
+                          {{ t.bindBtn }}
                         </button>
                         <button 
                           v-else
                           @click="userStore.unbindWechat()"
                           class="w-full py-2.5 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
                         >
-                          Unbind Account
+                          {{ t.unbindBtn }}
                         </button>
                       </div>
                     </div>
@@ -198,38 +247,49 @@ function handleLogout() {
 
                   <!-- General Tab -->
                   <div v-if="activeTab === 'general'" class="space-y-6">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">General Settings</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">{{ t.general }}</h3>
                     
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
-                      <!-- Gemini Key -->
-                      <div class="p-6">
-                        <div class="mb-3">
-                          <label class="block text-sm font-bold text-slate-900 mb-1">Gemini API Key</label>
-                          <p class="text-xs text-slate-500">Leave empty to use the built-in default key.</p>
-                        </div>
-                        <div class="relative max-w-md">
-                          <input
-                            :type="showApiKey ? 'text' : 'password'"
-                            class="w-full h-10 rounded-lg border border-slate-300 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            :value="apiKey"
-                            placeholder="sk-..."
-                            @input="(e:any) => updateKey(e.target.value)"
-                          />
+                      <!-- AI Configuration -->
+                      <div class="p-5">
+                        <div class="flex items-center justify-between cursor-pointer" @click="showAiConfig = !showAiConfig">
+                          <div class="flex items-center gap-3">
+                            <div>
+                              <div class="flex items-center gap-2">
+                                <label class="block text-sm font-bold text-slate-900 cursor-pointer">{{ t.aiTitle }}</label>
+                                <div class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded border border-green-200">
+                                  <CheckCircleIcon class="w-3 h-3" />
+                                  {{ t.envKeyActive }}
+                                </div>
+                              </div>
+                              <p class="text-xs text-slate-500 mt-0.5">{{ t.aiHint }}</p>
+                            </div>
+                          </div>
                           <button 
-                            @click="showApiKey = !showApiKey"
-                            class="absolute inset-y-0 right-0 px-3 text-slate-400 hover:text-slate-600"
+                            class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
                           >
-                            <EyeIcon v-if="!showApiKey" class="w-4 h-4" />
-                            <EyeSlashIcon v-else class="w-4 h-4" />
+                            <ChevronDownIcon 
+                              class="w-5 h-5 transition-transform duration-300"
+                              :class="showAiConfig ? 'rotate-180' : ''"
+                            />
                           </button>
+                        </div>
+
+                        <div 
+                          class="space-y-4 max-w-md overflow-hidden transition-all duration-300 ease-in-out"
+                          :class="showAiConfig ? 'max-h-[500px] opacity-100 pt-4' : 'max-h-0 opacity-0'"
+                        >
+                          <div class="p-4 bg-slate-50 rounded-lg text-xs text-slate-500">
+                             AI configuration is now managed by the server administrator.
+                          </div>
                         </div>
                       </div>
 
                       <!-- Clipboard -->
                       <div class="p-6 flex items-center justify-between">
                         <div>
-                          <div class="text-sm font-bold text-slate-900">Clipboard Monitor</div>
-                          <div class="text-xs text-slate-500 mt-1">Auto-detect copied text from other apps</div>
+                          <div class="text-sm font-bold text-slate-900">{{ t.clipboard }}</div>
+                          <div class="text-xs text-slate-500 mt-1">{{ t.clipboardHint }}</div>
                         </div>
                         <button 
                           class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
@@ -242,20 +302,44 @@ function handleLogout() {
                           />
                         </button>
                       </div>
+
+                      <!-- Language -->
+                      <div class="p-6 flex items-center justify-between">
+                        <div>
+                          <div class="text-sm font-bold text-slate-900">{{ t.language }}</div>
+                          <div class="text-xs text-slate-500 mt-1">{{ t.languageHint }}</div>
+                        </div>
+                        <div class="flex items-center bg-slate-100 rounded-lg p-1">
+                          <button 
+                            @click="ui.setLanguage('en')"
+                            class="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                            :class="ui.language === 'en' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                          >
+                            English
+                          </button>
+                          <button 
+                            @click="ui.setLanguage('zh')"
+                            class="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
+                            :class="ui.language === 'zh' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                          >
+                            中文
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <!-- Notifications Tab -->
                   <div v-if="activeTab === 'notify'" class="space-y-6">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Notifications</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">{{ t.notify }}</h3>
                     
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
                       
                       <!-- Daily Quote -->
                       <div class="p-6 flex items-center justify-between">
                         <div>
-                          <div class="text-sm font-bold text-slate-900">Daily Quote</div>
-                          <div class="text-xs text-slate-500 mt-1">Push a motivational quote every morning</div>
+                          <div class="text-sm font-bold text-slate-900">{{ t.dailyQuote }}</div>
+                          <div class="text-xs text-slate-500 mt-1">{{ t.dailyQuoteHint }}</div>
                         </div>
                         <button 
                           class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
@@ -273,8 +357,8 @@ function handleLogout() {
                       <!-- Learning Report -->
                       <div class="p-6 flex items-center justify-between">
                         <div>
-                          <div class="text-sm font-bold text-slate-900">Learning Report</div>
-                          <div class="text-xs text-slate-500 mt-1">Weekly summary of your reading progress</div>
+                          <div class="text-sm font-bold text-slate-900">{{ t.learningReport }}</div>
+                          <div class="text-xs text-slate-500 mt-1">{{ t.learningReportHint }}</div>
                         </div>
                         <button 
                           class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
@@ -292,8 +376,8 @@ function handleLogout() {
                       <!-- Check-in -->
                       <div class="p-6 flex items-center justify-between">
                         <div>
-                          <div class="text-sm font-bold text-slate-900">Check-in Reminder</div>
-                          <div class="text-xs text-slate-500 mt-1">Daily reminder to keep your streak</div>
+                          <div class="text-sm font-bold text-slate-900">{{ t.checkIn }}</div>
+                          <div class="text-xs text-slate-500 mt-1">{{ t.checkInHint }}</div>
                         </div>
                         <button 
                           class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
@@ -311,29 +395,29 @@ function handleLogout() {
 
                     <div v-if="!userStore.wechat.isBound" class="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-100">
                       <InformationCircleIcon class="w-4 h-4" />
-                      Please bind your WeChat account in the Account tab to enable notifications.
+                      {{ t.bindNotifyHint }}
                     </div>
                   </div>
 
                   <!-- Storage & Data Tab -->
                   <div v-if="activeTab === 'storage'" class="space-y-6">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Storage & Data</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">{{ t.storage }}</h3>
                     
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                       <div class="flex items-center justify-between mb-4">
-                        <h4 class="font-bold text-slate-900">Clear Data</h4>
-                        <span class="text-xs text-slate-400">Local Only</span>
+                        <h4 class="font-bold text-slate-900">{{ t.clearData }}</h4>
+                        <span class="text-xs text-slate-400">{{ t.localOnly }}</span>
                       </div>
                       
                       <div v-if="!confirmClear">
                         <p class="text-sm text-slate-500 mb-4">
-                          Permanently delete all articles, history, and settings. This action cannot be undone.
+                          {{ t.clearHint }}
                         </p>
                         <button 
                           @click="confirmClear = true"
                           class="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors text-sm font-medium"
                         >
-                          Clear All Data
+                          {{ t.clearBtn }}
                         </button>
                       </div>
 
@@ -341,7 +425,7 @@ function handleLogout() {
                          <div class="flex items-start gap-3 mb-3">
                             <ShieldCheckIcon class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                             <div class="text-sm text-red-800 font-medium">
-                              Are you absolutely sure? This will wipe everything and reset the app.
+                              {{ t.confirmText }}
                             </div>
                          </div>
                          <div class="flex gap-3">
@@ -349,13 +433,13 @@ function handleLogout() {
                             @click="clearAllData"
                             class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-bold shadow-sm"
                            >
-                             Yes, Delete Everything
+                             {{ t.confirmBtn }}
                            </button>
                            <button 
                             @click="confirmClear = false"
                             class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium"
                            >
-                             Cancel
+                             {{ t.cancel }}
                            </button>
                          </div>
                       </div>
@@ -364,14 +448,14 @@ function handleLogout() {
 
                   <!-- About Tab -->
                   <div v-if="activeTab === 'about'" class="space-y-6">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">About</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">{{ t.about }}</h3>
                     
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
                       <div class="w-16 h-16 bg-slate-900 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg shadow-slate-200">
                         S
                       </div>
                       <h4 class="text-lg font-bold text-slate-900">Steady</h4>
-                      <p class="text-sm text-slate-500 mb-6">Minimalist Reading & Learning</p>
+                      <p class="text-sm text-slate-500 mb-6">{{ t.slogan }}</p>
                       
                       <div class="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-medium text-slate-600">
                         <span>Version 1.0.0</span>
@@ -380,7 +464,7 @@ function handleLogout() {
                       </div>
 
                       <div class="mt-8 pt-8 border-t border-slate-100 text-xs text-slate-400">
-                        © 2024 Steady App. All rights reserved.
+                        {{ t.rights }}
                       </div>
                     </div>
                   </div>

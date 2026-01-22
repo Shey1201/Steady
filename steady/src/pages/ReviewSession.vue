@@ -2,10 +2,67 @@
 import { ref, computed, onMounted } from "vue";
 import { useCorpusStore, type CorpusItem } from "../stores/corpus";
 import { useRoute } from "vue-router";
+import { useUiStore } from "../stores/ui";
 import { EyeIcon, CheckCircleIcon } from "@heroicons/vue/24/outline";
 
 const store = useCorpusStore();
 const route = useRoute();
+const ui = useUiStore();
+
+// Localization
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    memoryReview: isZh ? '记忆复习' : 'Memory Review',
+    learning: isZh ? '学习' : 'Learning',
+    items: isZh ? '项' : 'Items',
+    overview: isZh ? '概览' : 'Overview',
+    retention: isZh ? '记忆保留率' : 'Retention',
+    mastered: isZh ? '已掌握' : 'Mastered',
+    sessionSetup: isZh ? '会话设置' : 'Session Setup',
+    configureQueue: isZh ? '配置学习队列' : 'Configure your learning queue',
+    resetData: isZh ? '重置数据' : 'Reset Data',
+    words: isZh ? '单词' : 'Words',
+    phrases: isZh ? '短语' : 'Phrases',
+    sentences: isZh ? '句子' : 'Sentences',
+    includeNew: isZh ? '包含新内容' : 'Include New',
+    includeDue: isZh ? '包含逾期' : 'Include Due',
+    import: isZh ? '导入' : 'Import',
+    cancel: isZh ? '取消' : 'Cancel',
+    anatomy: isZh ? '深度解析' : 'Anatomy',
+    pattern: isZh ? '句式' : 'Pattern',
+    dailyGoal: isZh ? '每日目标' : 'Daily Goal',
+    due: isZh ? '逾期' : 'Due',
+    startNow: isZh ? '现在开始' : 'Start Now',
+    newWords: isZh ? '生词本' : 'New Words',
+    totalAvailable: isZh ? '总计可用' : 'Total Available',
+    reviewHistory: isZh ? '复习历史' : 'Review History',
+    last30Days: isZh ? '最近30天' : 'Last 30 Days',
+    targetWord: isZh ? '目标单词' : 'Target Word',
+    keyPhrase: isZh ? '关键短语' : 'Key Phrase',
+    sentenceStructure: isZh ? '句式结构' : 'Sentence Structure',
+    showTranslation: isZh ? '显示释义' : 'Show Translation',
+    tryRecall: isZh ? '尝试回忆含义，然后再显示答案' : 'Try to recall the meaning before revealing',
+    sessionComplete: isZh ? '会话完成' : 'Session Complete',
+    greatJob: isZh ? '干得好。你可以从语料库添加更多内容，或复习已掌握的内容。' : 'Great job. You can add more items from Corpus or review mastered ones.',
+    backToQueue: isZh ? '返回队列' : 'Back to Queue',
+    emptyState: isZh ? '从词库导入新内容，开始今日学习。' : 'Nothing here yet, start by importing.',
+    importFromCorpus: isZh ? '从 Corpus 导入' : 'Import from Corpus',
+    statusNew: isZh ? '新' : 'NEW',
+    statusLearning: isZh ? '学习中' : 'LEARNING',
+    statusDue: isZh ? '逾期' : 'DUE NOW',
+    
+    // Review buttons
+    forget: isZh ? '忘记' : 'Forget',
+    vague: isZh ? '模糊' : 'Vague',
+    master: isZh ? '掌握' : 'Master',
+    
+    btnAgain: isZh ? '重来' : 'again',
+    btnHard: isZh ? '困难' : 'hard',
+    btnGood: isZh ? '良好' : 'good',
+    btnEasy: isZh ? '容易' : 'easy',
+  };
+});
 
 const sessionType = ref<"recitation" | "forgetting">("recitation");
 const currentIdx = ref(0);
@@ -192,6 +249,43 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
   }
 }
 
+// --- New Computed Properties ---
+
+const clozeContext = computed(() => {
+  if (!currentItem.value || !currentItem.value.context) return null;
+  const text = currentItem.value.text;
+  const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escapedText, 'gi');
+  return currentItem.value.context.replace(regex, '______');
+});
+
+const currentItemSimple = computed(() => {
+  if (!currentItem.value) return null;
+  return currentItem.value.simpleAnalysis || {
+    definition: currentItem.value.translation,
+    phonetic: '',
+    pos: currentItem.value.type
+  };
+});
+
+const currentItemAnalysis = computed(() => currentItem.value?.fullAiReport);
+
+// Semantic Linkage: Find items mentioned in synonyms
+const relatedItems = computed(() => {
+  if (!currentItem.value || !currentItemAnalysis.value?.coreEssence?.synonyms) return [];
+  const synonymsStr = currentItemAnalysis.value.coreEssence.synonyms.toLowerCase();
+  
+  // Find items in corpus that appear in the synonyms string
+  return store.items.filter(i => 
+    i.id !== currentItem.value?.id && 
+    i.type === currentItem.value?.type &&
+    synonymsStr.includes(i.text.toLowerCase())
+  );
+});
+
+// Gallery Mode
+const viewMode = ref<'review' | 'gallery'>('review');
+
 </script>
 
 <template>
@@ -200,19 +294,38 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-3xl font-black text-slate-900 tracking-tight">
-            {{ sessionType === 'forgetting' ? 'Memory Review' : 'Learning' }}
+            {{ sessionType === 'forgetting' ? t.memoryReview : t.learning }}
           </h2>
           <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-            {{ inSession ? `${currentIdx + 1} / ${items.length} Items` : 'Overview' }}
+            {{ inSession ? `${currentIdx + 1} / ${items.length} ${t.items}` : t.overview }}
           </div>
         </div>
+        
+        <!-- View Mode Toggle -->
+        <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl mx-6">
+            <button 
+              @click="viewMode = 'review'"
+              class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+              :class="viewMode === 'review' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+            >
+              Review
+            </button>
+            <button 
+              @click="viewMode = 'gallery'"
+              class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+              :class="viewMode === 'gallery' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+            >
+              Gallery
+            </button>
+        </div>
+
         <div class="flex items-center gap-6">
           <div>
-            <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Retention</div>
+            <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">{{ t.retention }}</div>
             <div class="text-xl font-black text-slate-900">{{ retention }}%</div>
           </div>
           <div>
-            <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Mastered</div>
+            <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">{{ t.mastered }}</div>
             <div class="text-xl font-black text-indigo-600">{{ masteredCount }}</div>
           </div>
         </div>
@@ -220,7 +333,46 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
 
 
 
+      <!-- Gallery View -->
+      <div v-if="viewMode === 'gallery'" class="w-full overflow-x-auto pb-8 snap-x snap-mandatory flex gap-6 px-4 custom-scrollbar">
+         <div 
+           v-for="item in store.items" 
+           :key="item.id" 
+           class="snap-center shrink-0 w-[350px] bg-white rounded-3xl border border-slate-200 shadow-xl p-6 flex flex-col h-[500px] overflow-y-auto custom-scrollbar"
+         >
+            <div class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">{{ item.type }}</div>
+            <div class="text-2xl font-black text-slate-900 mb-2">{{ item.text }}</div>
+            <div class="text-slate-600 mb-6 font-medium">{{ item.simpleAnalysis?.definition || item.translation }}</div>
+            
+            <div v-if="item.fullAiReport" class="space-y-4">
+               <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl text-sm text-slate-700 leading-relaxed">
+                  <div class="text-[10px] font-bold text-blue-500 uppercase mb-1">Core Essence</div>
+                  {{ item.fullAiReport.coreEssence.deepDefinition }}
+               </div>
+               
+               <div v-if="item.fullAiReport.structure?.collocations?.length" class="space-y-2">
+                  <div class="text-[10px] font-bold text-slate-400 uppercase">Collocations</div>
+                  <div class="flex flex-wrap gap-2">
+                    <span v-for="c in item.fullAiReport.structure.collocations.slice(0,5)" :key="c" class="px-2 py-1 bg-slate-50 rounded-lg text-xs text-slate-600 border border-slate-100">
+                      {{ c }}
+                    </span>
+                  </div>
+               </div>
+
+               <div v-if="item.fullAiReport.structure?.sentenceBreakdown" class="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm text-slate-600">
+                  <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Structure</div>
+                  {{ item.fullAiReport.structure.sentenceBreakdown }}
+               </div>
+            </div>
+            <div v-else class="flex-1 flex flex-col items-center justify-center text-slate-400 text-sm italic space-y-2">
+               <span>No deep analysis yet</span>
+               <button class="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm">Analyze Now</button>
+            </div>
+         </div>
+      </div>
+
       <div
+        v-else
         class="grid gap-6 items-start w-full grid-cols-1"
         :class="selectedQueueItem ? 'lg:grid-cols-[340px_1fr]' : 'lg:grid-cols-1'"
       >
@@ -236,8 +388,8 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                     ☰
                   </div>
                   <div>
-                    <h2 class="text-lg font-black text-slate-900">Session Setup</h2>
-                    <p class="text-xs text-slate-500 font-medium">Configure your learning queue</p>
+                    <h2 class="text-lg font-black text-slate-900">{{ t.sessionSetup }}</h2>
+                    <p class="text-xs text-slate-500 font-medium">{{ t.configureQueue }}</p>
                   </div>
                 </div>
                 <!-- Debug/Reset Button -->
@@ -246,7 +398,7 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                   class="text-[10px] text-slate-400 hover:text-red-500 underline"
                   title="Reload sample data for testing"
                 >
-                  Reset Data
+                  {{ t.resetData }}
                 </button>
               </div>
 
@@ -254,34 +406,34 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                 <label class="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-400">
                   <span class="flex items-center gap-2">
                     <input type="checkbox" v-model="selectedTypes.word" class="rounded border-slate-300" />
-                    <span class="text-sm font-semibold text-slate-800">Words</span>
+                    <span class="text-sm font-semibold text-slate-800">{{ t.words }}</span>
                   </span>
-                  <span class="text-xs text-slate-500">{{ setupStats.word.total }} items</span>
+                  <span class="text-xs text-slate-500">{{ setupStats.word.total }} {{ t.items }}</span>
                 </label>
                 <label class="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-400">
                   <span class="flex items-center gap-2">
                     <input type="checkbox" v-model="selectedTypes.phrase" class="rounded border-slate-300" />
-                    <span class="text-sm font-semibold text-slate-800">Phrases</span>
+                    <span class="text-sm font-semibold text-slate-800">{{ t.phrases }}</span>
                   </span>
-                  <span class="text-xs text-slate-500">{{ setupStats.phrase.total }} items</span>
+                  <span class="text-xs text-slate-500">{{ setupStats.phrase.total }} {{ t.items }}</span>
                 </label>
                 <label class="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-400">
                   <span class="flex items-center gap-2">
                     <input type="checkbox" v-model="selectedTypes.sentence" class="rounded border-slate-300" />
-                    <span class="text-sm font-semibold text-slate-800">Sentences</span>
+                    <span class="text-sm font-semibold text-slate-800">{{ t.sentences }}</span>
                   </span>
-                  <span class="text-xs text-slate-500">{{ setupStats.sentence.total }} items</span>
+                  <span class="text-xs text-slate-500">{{ setupStats.sentence.total }} {{ t.items }}</span>
                 </label>
               </div>
 
               <div class="flex items-center justify-between mb-4">
                 <label class="flex items-center gap-2 text-xs text-slate-600 font-medium">
                   <input type="checkbox" v-model="includeNew" class="rounded border-slate-300" />
-                  Include New
+                  {{ t.includeNew }}
                 </label>
                 <label class="flex items-center gap-2 text-xs text-slate-600 font-medium">
                   <input type="checkbox" v-model="includeDue" class="rounded border-slate-300" />
-                  Include Due
+                  {{ t.includeDue }}
                 </label>
               </div>
 
@@ -291,26 +443,26 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                 class="w-full h-11 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all"
                 :class="totalSelectedCount === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-200 active:scale-95'"
               >
-                Import ({{ totalSelectedCount }})
+                {{ t.import }} ({{ totalSelectedCount }})
               </button>
               <button
                 class="mt-3 w-full h-10 rounded-2xl text-xs font-bold text-slate-500 border border-slate-200 hover:bg-slate-50"
                 @click="showSetup = false"
               >
-                Cancel
+                {{ t.cancel }}
               </button>
             </div>
           </div>
 
           <div v-else-if="selectedQueueItem" class="bg-white rounded-3xl border border-slate-200 shadow-xl p-6">
              <div class="space-y-3">
-               <div class="text-xs font-black text-slate-400 uppercase tracking-[0.25em]">Anatomy</div>
+               <div class="text-xs font-black text-slate-400 uppercase tracking-[0.25em]">{{ t.anatomy }}</div>
                <div class="text-lg font-bold text-slate-900">{{ selectedQueueItem.text }}</div>
                <div class="text-sm text-slate-500">{{ selectedQueueItem.translation }}</div>
-               <div v-if="selectedQueueItem.analysis?.logicTemplate" class="mt-3">
-                 <div class="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-2">Pattern</div>
+               <div v-if="selectedQueueItem.fullAiReport?.structure?.sentenceBreakdown" class="mt-3">
+                 <div class="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-2">{{ t.pattern }}</div>
                  <div class="text-sm font-mono bg-indigo-50/50 p-3 rounded-xl text-indigo-900 border border-indigo-100/50">
-                   {{ selectedQueueItem.analysis.logicTemplate }}
+                   {{ selectedQueueItem.fullAiReport.structure.sentenceBreakdown }}
                  </div>
                </div>
              </div>
@@ -325,14 +477,14 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
           >
             <!-- Daily Goal Card -->
             <div class="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-xl p-6 flex flex-col gap-4">
-              <div class="text-lg font-black text-slate-900">Daily Goal</div>
+              <div class="text-lg font-black text-slate-900">{{ t.dailyGoal }}</div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <div class="text-xs font-bold text-slate-400 uppercase tracking-[0.18em]">Learning</div>
+                  <div class="text-xs font-bold text-slate-400 uppercase tracking-[0.18em]">{{ t.learning }}</div>
                   <div class="mt-1 text-2xl font-black text-slate-900">{{ totalLearningCount }}</div>
                 </div>
                 <div>
-                  <div class="text-xs font-bold text-slate-400 uppercase tracking-[0.18em]">Due</div>
+                  <div class="text-xs font-bold text-slate-400 uppercase tracking-[0.18em]">{{ t.due }}</div>
                   <div class="mt-1 flex items-center justify-between gap-3">
                     <div class="text-2xl font-black text-rose-600">{{ totalDueCount }}</div>
                     <button
@@ -340,7 +492,7 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                       @click="startLearningSession"
                       class="px-4 h-8 rounded-2xl bg-slate-900 text-white text-[11px] font-black shadow-sm hover:bg-slate-800 active:scale-95 transition-all"
                     >
-                      Start Now
+                      {{ t.startNow }}
                     </button>
                   </div>
                 </div>
@@ -349,16 +501,16 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
 
             <!-- New Words Card -->
             <div class="bg-white rounded-3xl border border-slate-200 shadow-xl p-6 flex flex-col justify-between">
-              <div class="text-sm font-bold text-slate-900">New Words</div>
+              <div class="text-sm font-bold text-slate-900">{{ t.newWords }}</div>
               <div>
                 <div class="text-3xl font-black text-slate-900">{{ newWordsCount }}</div>
-                <div class="text-xs font-medium text-slate-400 mt-1">Total Available</div>
+                <div class="text-xs font-medium text-slate-400 mt-1">{{ t.totalAvailable }}</div>
               </div>
             </div>
 
             <!-- Review History Card -->
             <div class="bg-white rounded-3xl border border-slate-200 shadow-xl p-6 flex flex-col justify-between">
-              <div class="text-sm font-bold text-slate-900">Review History</div>
+              <div class="text-sm font-bold text-slate-900">{{ t.reviewHistory }}</div>
               <div>
                 <div class="flex items-center gap-1 text-xs text-slate-400 mb-2">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,7 +521,7 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  Last 30 Days
+                  {{ t.last30Days }}
                 </div>
                 <svg class="w-full h-8 text-indigo-500" viewBox="0 0 100 30" preserveAspectRatio="none">
                   <path
@@ -395,10 +547,15 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
 
               <div class="flex-1 p-10 flex flex-col items-center justify-center text-center">
                 <div class="text-xs font-black text-indigo-500 uppercase tracking-[0.3em] mb-6">
-                  {{ currentItem.type === 'word' ? 'Target Word' : currentItem.type === 'phrase' ? 'Key Phrase' : 'Sentence Structure' }}
+                  {{ currentItem.type === 'word' ? t.targetWord : currentItem.type === 'phrase' ? t.keyPhrase : t.sentenceStructure }}
                 </div>
                 <div class="text-3xl md:text-4xl font-black text-slate-900 leading-tight mb-8">
                   {{ currentItem.text }}
+                </div>
+
+                <!-- Shadow Practice: Cloze Context -->
+                <div v-if="!showAnswer && clozeContext" class="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100 text-slate-600 font-medium leading-relaxed max-w-lg mx-auto">
+                   "{{ clozeContext }}"
                 </div>
 
                 <div
@@ -406,10 +563,70 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                   class="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full"
                 >
                   <div class="h-px bg-slate-100 w-24 mx-auto mb-8"></div>
+                  
+                  <!-- Main Translation -->
                   <div class="text-xl text-slate-600 font-medium leading-relaxed max-w-md mx-auto">
-                    {{ currentItem.translation }}
+                    {{ currentItemSimple?.definition || currentItem.translation }}
                   </div>
-                  <div v-if="currentItem.note" class="mt-4 text-sm text-slate-400 italic">
+                  
+                  <div v-if="currentItemSimple?.phonetic" class="text-sm text-slate-400 font-mono mt-1">
+                    /{{ currentItemSimple.phonetic }}/
+                  </div>
+
+                  <!-- Full Context -->
+                  <div v-if="currentItem.context" class="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 italic leading-relaxed max-w-lg mx-auto">
+                    "{{ currentItem.context }}"
+                  </div>
+
+                  <!-- AI Analysis Report -->
+                  <div v-if="currentItemAnalysis" class="mt-8 space-y-6 text-left max-w-lg mx-auto">
+                    
+                    <!-- Core Essence -->
+                    <div v-if="currentItemAnalysis.coreEssence" class="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
+                      <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">Core Essence</div>
+                      <div class="text-sm text-slate-700 leading-relaxed">{{ currentItemAnalysis.coreEssence.deepDefinition }}</div>
+                      <div v-if="currentItemAnalysis.coreEssence.synonyms" class="mt-2 text-xs text-slate-500 italic">
+                        Vs: {{ currentItemAnalysis.coreEssence.synonyms }}
+                      </div>
+                    </div>
+
+                    <!-- Semantic Linkage -->
+                    <div v-if="relatedItems.length > 0" class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100">
+                      <div class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">Semantic Linkage</div>
+                      <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                          <thead>
+                            <tr class="border-b border-indigo-100">
+                              <th class="pb-2 font-bold text-slate-700">Word</th>
+                              <th class="pb-2 font-bold text-slate-700">Definition</th>
+                            </tr>
+                          </thead>
+                          <tbody class="text-slate-600">
+                            <tr v-for="item in relatedItems" :key="item.id" class="border-b border-indigo-50 last:border-0">
+                              <td class="py-2 font-medium text-indigo-900">{{ item.text }}</td>
+                              <td class="py-2 text-xs">{{ item.simpleAnalysis?.definition || item.translation }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <!-- Structure -->
+                    <div v-if="currentItemAnalysis.structure" class="space-y-3">
+                       <div v-if="currentItemAnalysis.structure.collocations?.length" class="flex flex-wrap gap-2 justify-center">
+                         <span v-for="col in currentItemAnalysis.structure.collocations" :key="col" class="px-2 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-600">
+                           {{ col }}
+                         </span>
+                       </div>
+                       <div v-if="currentItemAnalysis.structure.sentenceBreakdown" class="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                         <span class="font-bold text-slate-400 text-xs uppercase mr-2">Structure</span>
+                         {{ currentItemAnalysis.structure.sentenceBreakdown }}
+                       </div>
+                    </div>
+
+                  </div>
+
+                  <div v-if="currentItem.note && !currentItemAnalysis" class="mt-4 text-sm text-slate-400 italic">
                     "{{ currentItem.note }}"
                   </div>
                 </div>
@@ -420,7 +637,7 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                   class="mt-4 flex items-center gap-2 text-indigo-600 font-bold hover:scale-110 transition-transform"
                 >
                   <EyeIcon class="w-6 h-6" />
-                  <span>Show Translation</span>
+                  <span>{{ t.showTranslation }}</span>
                 </button>
               </div>
 
@@ -439,7 +656,9 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                         'bg-green-50 border-green-100 text-green-600 hover:bg-green-100': p === 'easy',
                       }"
                     >
-                      <span class="text-xs font-black uppercase tracking-wider">{{ p }}</span>
+                      <span class="text-xs font-black uppercase tracking-wider">
+                        {{ p === 'again' ? t.btnAgain : p === 'hard' ? t.btnHard : p === 'good' ? t.btnGood : t.btnEasy }}
+                      </span>
                     </button>
                   </div>
                   <div v-else class="grid grid-cols-3 gap-3">
@@ -447,24 +666,24 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                       @click="handleReview('again')"
                       class="flex flex-col items-center gap-1 py-3 rounded-2xl border transition-all active:scale-95 bg-red-50 border-red-100 text-red-600 hover:bg-red-100"
                     >
-                      <span class="text-xs font-black tracking-wider">忘记</span>
+                      <span class="text-xs font-black tracking-wider">{{ t.forget }}</span>
                     </button>
                     <button
                       @click="handleReview('hard')"
                       class="flex flex-col items-center gap-1 py-3 rounded-2xl border transition-all active:scale-95 bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100"
                     >
-                      <span class="text-xs font-black tracking-wider">模糊</span>
+                      <span class="text-xs font-black tracking-wider">{{ t.vague }}</span>
                     </button>
                     <button
                       @click="handleReview('easy')"
                       class="flex flex-col items-center gap-1 py-3 rounded-2xl border transition-all active:scale-95 bg-green-50 border-green-100 text-green-600 hover:bg-green-100"
                     >
-                      <span class="text-xs font-black tracking-wider">掌握</span>
+                      <span class="text-xs font-black tracking-wider">{{ t.master }}</span>
                     </button>
                   </div>
                 </template>
                 <div v-else class="text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  Try to recall the meaning before revealing
+                  {{ t.tryRecall }}
                 </div>
               </div>
             </div>
@@ -474,15 +693,15 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
             <div class="w-24 h-24 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-indigo-200">
               <CheckCircleIcon class="w-12 h-12" />
             </div>
-            <h2 class="mt-4 text-3xl font-black text-slate-900 mb-4">Session Complete</h2>
+            <h2 class="mt-4 text-3xl font-black text-slate-900 mb-4">{{ t.sessionComplete }}</h2>
             <p class="text-slate-500 font-medium mb-6 max-w-sm mx-auto">
-              Great job. You can add more items from Corpus or review mastered ones.
+              {{ t.greatJob }}
             </p>
             <button
               @click="backToQueue"
               class="px-8 h-11 rounded-2xl bg-slate-900 text-white font-black shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
             >
-              Back to Queue
+              {{ t.backToQueue }}
             </button>
           </div>
 
@@ -490,13 +709,13 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
             <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-sm mb-4 text-slate-300">
               <EyeIcon class="w-8 h-8" />
             </div>
-            <p class="text-slate-500 font-medium mb-1">从词库导入新内容，开始今日学习。</p>
+            <p class="text-slate-500 font-medium mb-1">{{ t.emptyState }}</p>
             <p class="text-xs text-slate-400 mb-4">Nothing here yet, start by importing.</p>
             <button
               @click="showSetup = true"
               class="px-6 h-11 rounded-2xl bg-slate-900 text-white font-black shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
             >
-              从 Corpus 导入
+              {{ t.importFromCorpus }}
             </button>
           </div>
 
@@ -516,19 +735,19 @@ function handleReview(performance: "easy" | "good" | "hard" | "again") {
                   v-if="(item.status || 'new') === 'new'"
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black tracking-[0.18em] bg-sky-100 text-sky-600"
                 >
-                  NEW
+                  {{ t.statusNew }}
                 </span>
                 <span
                   v-else-if="(item.status || 'new') === 'learning'"
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black tracking-[0.18em] bg-emerald-100 text-emerald-600"
                 >
-                  LEARNING
+                  {{ t.statusLearning }}
                 </span>
                 <span
                   v-if="item.nextReviewAt && item.nextReviewAt <= Date.now()"
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black tracking-[0.18em] bg-rose-100 text-rose-600"
                 >
-                  DUE NOW
+                  {{ t.statusDue }}
                 </span>
               </div>
             </div>

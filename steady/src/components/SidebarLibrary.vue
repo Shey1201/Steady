@@ -8,6 +8,15 @@ const lib = useLibraryStore();
 const ui = useUiStore();
 lib.addSample();
 const cats = computed(() => lib.categories);
+
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    library: isZh ? '文章库' : 'Library',
+    all: isZh ? '全部' : 'All',
+    import: isZh ? '导入文章' : 'Import Article',
+  };
+});
 </script>
 
 <template>
@@ -15,7 +24,7 @@ const cats = computed(() => lib.categories);
     <div class="px-6 py-8">
       <div class="flex items-center gap-2 text-slate-900 font-bold text-lg mb-6">
         <FolderIcon class="w-5 h-5" />
-        <span>Library</span>
+        <span>{{ t.library }}</span>
       </div>
       
       <div class="space-y-2">
@@ -30,7 +39,9 @@ const cats = computed(() => lib.categories);
           ]"
           :to="c.name === 'All' ? '/reading' : { path: '/reading', query: { category: c.name } }"
         >
-          <span class="text-slate-600 group-hover:text-slate-900 transition-colors" :class="{ 'text-slate-900 font-bold': $route.query.category === c.name || ($route.query.category === undefined && c.name === 'All') }">{{ c.name }}</span>
+          <span class="text-slate-600 group-hover:text-slate-900 transition-colors" :class="{ 'text-slate-900 font-bold': $route.query.category === c.name || ($route.query.category === undefined && c.name === 'All') }">
+            {{ c.name === 'All' ? t.all : c.name }}
+          </span>
           <span class="text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md text-[10px] font-bold group-hover:bg-slate-100 transition-colors">{{ c.count }}</span>
         </router-link>
       </div>
@@ -42,7 +53,7 @@ const cats = computed(() => lib.categories);
         @click="ui.openImport()"
       >
         <ArrowUpTrayIcon class="w-4 h-4" />
-        <span>Import Article</span>
+        <span>{{ t.import }}</span>
       </button>
     </div>
   </aside>

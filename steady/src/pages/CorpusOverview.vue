@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useCorpusStore, type CorpusType, type LearningStatus } from "../stores/corpus";
-import { ref, computed } from "vue";
+import { useUiStore } from "../stores/ui";
+import { ref, computed, watch } from "vue";
 import CorpusItemDetail from "../components/CorpusItemDetail.vue";
 import { 
   BookOpenIcon, 
@@ -12,12 +13,36 @@ import {
 import { StarIcon as StarIconSolid } from "@heroicons/vue/24/solid";
 
 const store = useCorpusStore();
+const ui = useUiStore();
 store.addSample();
 const filter = ref<CorpusType>("word");
 const viewMode = ref<"list" | "card">("list");
 const favoritesView = ref(false);
 const showDetail = ref(false);
 const current = ref<any>(null);
+
+// Watch for store updates to keep the current item fresh (for async AI results)
+watch(() => store.items, (newItems) => {
+  if (current.value) {
+    const fresh = newItems.find(i => i.id === current.value.id);
+    if (fresh) {
+      current.value = fresh;
+    }
+  }
+}, { deep: true });
+
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    title: isZh ? '语料库' : 'Corpus',
+    subtitle: isZh ? '提炼语言资产，掌握地道表达' : 'Refine your linguistic assets and master expressions',
+    startSession: isZh ? '开始学习' : 'Start Session',
+    word: isZh ? '单词' : 'Word',
+    phrase: isZh ? '短语' : 'Phrase',
+    sentence: isZh ? '句子' : 'Sentence',
+    favorites: isZh ? '收藏' : 'Favorites',
+  };
+});
 
 const displayItems = computed(() => {
   if (favoritesView.value) {
@@ -49,8 +74,8 @@ function closeDetail() {
     <!-- Header Area -->
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
       <div>
-        <h2 class="text-3xl font-black text-slate-900 tracking-tight">Corpus</h2>
-        <p class="text-slate-500 font-medium">Refine your linguistic assets and master expressions</p>
+        <h2 class="text-3xl font-black text-slate-900 tracking-tight">{{ t.title }}</h2>
+        <p class="text-slate-500 font-medium">{{ t.subtitle }}</p>
       </div>
       
       <div class="flex items-center gap-3">
@@ -59,7 +84,7 @@ function closeDetail() {
           @click="$router.push({ name: 'ReviewSession' })"
         >
           <BookOpenIcon class="w-5 h-5" />
-          <span>Start Session</span>
+          <span>{{ t.startSession }}</span>
         </button>
       </div>
     </div>
@@ -71,7 +96,7 @@ function closeDetail() {
         :class="!favoritesView && filter === 'word' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm ring-1 ring-indigo-600' : 'border-slate-200 bg-white hover:border-slate-400'"
         @click="favoritesView = false; filter = 'word'"
       >
-        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Word</div>
+        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">{{ t.word }}</div>
         <div class="mt-1 text-xl font-black">{{ store.wordsCount }}</div>
       </button>
       <button
@@ -79,7 +104,7 @@ function closeDetail() {
         :class="!favoritesView && filter === 'phrase' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm ring-1 ring-indigo-600' : 'border-slate-200 bg-white hover:border-slate-400'"
         @click="favoritesView = false; filter = 'phrase'"
       >
-        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Phrase</div>
+        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">{{ t.phrase }}</div>
         <div class="mt-1 text-xl font-black">{{ store.phrasesCount }}</div>
       </button>
       <button
@@ -87,7 +112,7 @@ function closeDetail() {
         :class="!favoritesView && filter === 'sentence' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm ring-1 ring-indigo-600' : 'border-slate-200 bg-white hover:border-slate-400'"
         @click="favoritesView = false; filter = 'sentence'"
       >
-        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Sentence</div>
+        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">{{ t.sentence }}</div>
         <div class="mt-1 text-xl font-black">{{ store.sentencesCount }}</div>
       </button>
       <button
@@ -95,7 +120,7 @@ function closeDetail() {
         :class="favoritesView ? 'border-amber-500 text-amber-600 bg-white shadow-sm ring-1 ring-amber-500' : 'border-slate-200 bg-white hover:border-amber-400'"
         @click="favoritesView = true"
       >
-        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Favorites</div>
+        <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">{{ t.favorites }}</div>
         <div class="mt-1 text-xl font-black">{{ favoritesCount }}</div>
       </button>
     </div>
@@ -275,8 +300,8 @@ function closeDetail() {
               </div>
             </div>
             <div class="text-slate-600 text-sm mb-4 line-clamp-2">{{ item.translation }}</div>
-            <div v-if="item.analysis?.collocations" class="flex flex-wrap gap-2 mt-auto">
-              <span v-for="c in item.analysis.collocations.slice(0, 3)" :key="c" class="px-2 py-1 bg-slate-100 text-[10px] font-bold text-slate-500 rounded uppercase tracking-wider">
+            <div v-if="item.fullAiReport?.structure?.collocations" class="flex flex-wrap gap-2 mt-auto">
+              <span v-for="c in item.fullAiReport.structure.collocations.slice(0, 3)" :key="c" class="px-2 py-1 bg-slate-100 text-[10px] font-bold text-slate-500 rounded uppercase tracking-wider">
                 {{ c }}
               </span>
             </div>
@@ -339,6 +364,7 @@ function closeDetail() {
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

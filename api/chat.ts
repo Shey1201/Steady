@@ -5,16 +5,18 @@ export const config = {
   runtime: 'edge',
 };
 
-const dashscope = createOpenAI({
-  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  apiKey: process.env.DASHSCOPE_API_KEY,
-});
-
 export default async function handler(req: Request) {
   const { messages } = await req.json();
 
+  const aiProvider = createOpenAI({
+    baseURL: process.env.AI_BASE_URL || 'https://api.deepseek.com/v1',
+    apiKey: process.env.AI_API_KEY,
+  });
+
+  const modelName = process.env.AI_MODEL || 'deepseek-chat';
+
   const result = streamText({
-    model: dashscope('qwen-max'),
+    model: aiProvider(modelName),
     messages,
   });
 

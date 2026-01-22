@@ -4,6 +4,7 @@ import SidebarLibrary from "./components/SidebarLibrary.vue";
 import SettingsModal from "./components/SettingsModal.vue";
 import ImportArticleModal from "./components/ImportArticleModal.vue";
 import QuickLookup from "./components/QuickLookup.vue";
+import AnalysisPanel from "./components/AnalysisPanel.vue";
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useUiStore } from "./stores/ui";
 import { useRoute } from "vue-router";
@@ -78,6 +79,7 @@ watch(() => ui.enableClipboardWatch, (v) => {
     <div v-if="ui.showQuickLookup && !isLoginPage" ref="quickLookupWrapper" class="fixed right-6 top-24 z-40 w-[360px]">
       <QuickLookup :pinned="true" :text="ui.quickText" />
     </div>
+    <AnalysisPanel />
   </div>
 </template>
 

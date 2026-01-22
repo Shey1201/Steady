@@ -1,14 +1,26 @@
 <script setup lang="ts">
 import { useLibraryStore } from "../stores/library";
+import { useUiStore } from "../stores/ui";
 import { useRoute, useRouter } from "vue-router";
 import { computed } from "vue";
 import { BookOpenIcon, TrashIcon } from "@heroicons/vue/24/outline";
 
 const lib = useLibraryStore();
+const ui = useUiStore();
 const route = useRoute();
 const router = useRouter();
 
 lib.addSample();
+
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    allArticles: isZh ? '所有文章' : 'All Articles',
+    words: isZh ? '词' : 'words',
+    deleteConfirm: isZh ? '确定要删除这篇文章吗？' : 'Are you sure you want to delete this article?',
+    deleteTitle: isZh ? '删除文章' : 'Delete Article',
+  };
+});
 
 const articles = computed(() => {
   const cat = route.query.category as string | undefined;
@@ -21,7 +33,7 @@ function openArticle(id: string) {
 }
 
 function deleteArticle(id: string) {
-  if (confirm("Are you sure you want to delete this article?")) {
+  if (confirm(t.value.deleteConfirm)) {
     lib.deleteArticle(id);
   }
 }
@@ -33,7 +45,7 @@ function getWordCount(paragraphs: string[]) {
 
 <template>
   <div class="max-w-7xl mx-auto">
-    <h1 class="text-2xl font-black text-slate-900 mb-8">All Articles</h1>
+    <h1 class="text-2xl font-black text-slate-900 mb-8">{{ t.allArticles }}</h1>
     
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       <div
@@ -46,7 +58,7 @@ function getWordCount(paragraphs: string[]) {
         <button 
           @click.stop="deleteArticle(a.id)" 
           class="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100 z-10"
-          title="Delete Article"
+          :title="t.deleteTitle"
         >
           <TrashIcon class="w-5 h-5" />
         </button>
@@ -67,7 +79,7 @@ function getWordCount(paragraphs: string[]) {
             {{ new Date(a.createdAt).toLocaleDateString() }}
           </time>
           <span class="px-3 py-1 rounded-lg bg-blue-50/50 text-[11px] font-bold text-blue-400/80 border border-blue-100/20 uppercase tracking-tight">
-            {{ getWordCount(a.paragraphs) }} words
+            {{ getWordCount(a.paragraphs) }} {{ t.words }}
           </span>
         </div>
       </div>

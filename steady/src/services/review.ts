@@ -1,11 +1,11 @@
-import { getClient } from "./gemini";
+import { generateText, hasApiKey } from "./ai";
 
 export async function generateParaphrasing(wordA: string, sentencePatternB: string, base: string) {
-  const client = getClient();
-  if (!client) return `Use "${wordA}" and pattern "${sentencePatternB}" to improve:\n${base}`;
-  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const res = await model.generateContent(`Paraphrase the following base sentence using term "${wordA}" and pattern "${sentencePatternB}". Provide one improved sentence.`);
-  return res.response.text();
+  if (!hasApiKey()) return `Use "${wordA}" and pattern "${sentencePatternB}" to improve:\n${base}`;
+  
+  const prompt = `Paraphrase the following base sentence using term "${wordA}" and pattern "${sentencePatternB}". Provide one improved sentence.
+Base Sentence: ${base}`;
+  return generateText(prompt);
 }
 
 export async function generateCloze(sentence: string) {
@@ -14,11 +14,9 @@ export async function generateCloze(sentence: string) {
 }
 
 export async function generateOutputPrompt(phrases: string[]) {
-  const client = getClient();
   const theme = "Compose a short paragraph connecting the given phrases naturally.";
-  if (!client) return `${theme}\nPhrases: ${phrases.join(", ")}`;
-  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const res = await model.generateContent(`${theme}\nPhrases: ${phrases.join(", ")}`);
-  return res.response.text();
+  if (!hasApiKey()) return `${theme}\nPhrases: ${phrases.join(", ")}`;
+  
+  return generateText(`${theme}\nPhrases: ${phrases.join(", ")}`);
 }
 

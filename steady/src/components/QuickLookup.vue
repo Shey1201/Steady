@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from "vue";
-import { translateText, hasApiKey } from "../services/gemini";
+import { ref, watch, onMounted, onBeforeUnmount, computed } from "vue";
 import { lookupDictionary } from "../services/dictionary";
 import { fallbackTranslate } from "../services/translate";
+import { prefetchQuickMeaning } from "../services/ai";
 import { useCorpusStore, type CorpusType } from "../stores/corpus";
-import { deepAnalyze } from "../services/analysis";
 import { useUiStore } from "../stores/ui";
 import { 
   XMarkIcon, 
@@ -33,15 +32,40 @@ const props = defineProps<{
   text?: string;
 }>();
 
-function setMode(next: CorpusType) {
-  mode.value = next;
-  doTranslate();
-}
+// Localization
+const existingItem = computed(() => {
+  if (!selectedText.value) return null;
+  return store.items.find(i => i.text.toLowerCase() === selectedText.value.toLowerCase());
+});
+
+const t = computed(() => {
+  const isZh = ui.language === 'zh';
+  return {
+    title: isZh ? '快速词典' : 'Quick Dictionary',
+    placeholder: isZh ? '输入或选择文本...' : 'Type or select text...',
+    translating: isZh ? '翻译中...' : 'Translating...',
+    waiting: isZh ? '等待输入...' : 'Waiting for input...',
+    errorKey: isZh ? '请在设置中配置 API Key' : 'Please configure API Key in settings',
+    errorNetwork: isZh ? '(翻译失败，请检查网络或 API Key)' : '(Translation failed, please check network or API Key)',
+    notePlaceholder: isZh ? '添加个人笔记...' : 'Add a personal note...',
+    save: isZh ? '保存' : 'Save',
+    update: isZh ? '更新语境' : 'Update Context',
+    analyze: isZh ? 'AI 分析' : 'AI Analyse',
+    analyzing: isZh ? 'AI 正在分析...' : 'AI Analyzing...',
+    existing: isZh ? '已在库中' : 'In Corpus',
+    lastReview: isZh ? '上次复习: ' : 'Last reviewed: ',
+  };
+});
 
 async function doTranslate() {
   if (!selectedText.value) return;
   
   const text = selectedText.value.trim();
+
+  // Prefetch AI analysis (Silent background)
+  prefetchQuickMeaning(text, props.context || "", ui.language);
+
+  // ... existing logic ...
   const wordCount = text.split(/\s+/).length;
 
   // 1. 尝试词典 (单词或短词组) - 第一优先级
@@ -57,34 +81,22 @@ async function doTranslate() {
   }
 
   // 2. 降级方案：免费翻译接口 (MyMemory) - 第二优先级
-  if (translation.value === "" || translation.value === "...") {
-    translation.value = "Translating (Free)...";
+  if (translation.value === "" || translation.value === "..." || translation.value === t.value.waiting) {
+    translation.value = t.value.translating;
   }
   try {
-    const freeResult = await fallbackTranslate(text);
+    // Determine target language based on UI setting
+    const targetLang = ui.language;
+    // Simple heuristic: if input contains Chinese, translate to English, else to targetLang
+    // But user requirement says: "If language is Chinese, translation display must be Chinese"
+    // So we force targetLang to ui.language
+    // Use 'Autodetect' for source language to handle non-English inputs correctly
+    const freeResult = await fallbackTranslate(text, "Autodetect", targetLang);
     translation.value = freeResult;
     translateError.value = false;
-    
-    // 如果是单词/短语且免费翻译成功了，我们可能不需要 AI 翻译了
-    // 但如果用户想要更好的 AI 翻译，可以在之后配置 Key
-    if (wordCount <= 5) return; 
   } catch (e) {
-    // 免费接口失败，尝试 AI
-  }
-
-  // 3. 尝试 AI 翻译 (如果有 Key) - 第三优先级
-  if (hasApiKey()) {
-    try {
-      translation.value = await translateText(text, mode.value, "zh");
-      translateError.value = false;
-      return;
-    } catch (e) {
-      // AI 失败
-    }
-  }
-
-  if (!translation.value || translation.value.startsWith("Translating")) {
-    translation.value = "(Translation failed, please check network or API Key)";
+    // 免费接口失败
+    translation.value = t.value.errorNetwork;
     translateError.value = true;
   }
 }
@@ -95,47 +107,58 @@ async function handleSave() {
   if (!translation.value) {
     await doTranslate();
   }
-  store.addItem({
-    type: type,
-    text: selectedText.value,
-    translation: translation.value,
-    note: note.value || undefined,
-    context: props.context,
-    sourceUrl: props.sourceUrl,
-  });
+  
+  if (existingItem.value) {
+    // Update existing
+    const oldContext = existingItem.value.context;
+    let newNote = existingItem.value.note || "";
+    // If context changed, append old context to note
+    if (props.context && oldContext && oldContext !== props.context) {
+      newNote += `\n\n[Context History]: ${oldContext}`;
+    }
+    // Append current note input if any
+    if (note.value) {
+      newNote += `\n${note.value}`;
+    }
+
+    store.updateItem(existingItem.value.id, {
+      context: props.context,
+      note: newNote,
+      lastReviewedAt: Date.now(),
+      reviewCount: existingItem.value.reviewCount + 1
+    });
+    
+    // Check if fullAiReport is missing, if so, trigger background analysis
+    if (!existingItem.value.fullAiReport) {
+      store.triggerBackgroundAnalysis(
+        existingItem.value.id, 
+        existingItem.value.text, 
+        props.context || "", 
+        existingItem.value.type
+      );
+    }
+
+    // Reset note input
+    note.value = "";
+  } else {
+    store.addItem({
+      type,
+      text: selectedText.value,
+      translation: translation.value,
+      context: props.context,
+      note: note.value,
+      sourceUrl: props.sourceUrl,
+      backgroundAnalysis: true
+    });
+    note.value = "";
+  }
   hide();
 }
 
-async function handleAnalyse() {
+function handleAnalyse() {
   if (!selectedText.value) return;
-  
-  if (!hasApiKey()) {
-    alert("AI Analyse requires a Gemini API Key. Please configure it in Settings.");
-    return;
-  }
-
-  const type = mode.value;
-  if (!translation.value) {
-    await doTranslate();
-  }
-  const id = store.addItem({
-    type: type,
-    text: selectedText.value,
-    translation: translation.value,
-    note: note.value || undefined,
-    context: props.context,
-    sourceUrl: props.sourceUrl,
-  });
-  
-  // Background AI analysis
-  deepAnalyze({ type, text: selectedText.value })
-    .then(analysis => {
-      store.updateAnalysis(id, analysis);
-    })
-    .catch(err => {
-      console.error("Deep analysis failed:", err);
-    });
-  
+  // Pass true for fromQuickLookup to enable restoration
+  ui.openAnalysisPanel(selectedText.value, props.context || "", mode.value, true);
   hide();
 }
 
@@ -203,6 +226,12 @@ watch(() => ui.quickText, (newText) => {
   }
 });
 
+watch(() => ui.language, () => {
+  if (selectedText.value) {
+    doTranslate();
+  }
+});
+
 watch(selectedText, (newVal) => {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
@@ -227,7 +256,6 @@ watch(() => props.text, (t) => {
 
 function detectType(t: string): CorpusType {
   const text = t.trim();
-  // 去除末尾标点后再判断
   const cleanText = text.replace(/[.!?;]+$/, "");
   const wordCount = cleanText.split(/\s+/).length;
   
@@ -238,94 +266,94 @@ function detectType(t: string): CorpusType {
 </script>
 
 <template>
-  <div
-    v-if="visible || props.pinned"
-    ref="root"
-    class="fixed z-50 transition-all duration-300"
-    :style="props.pinned ? { right: '1.5rem', top: '6rem', width: '380px' } : { left: `${x - 190}px`, top: `${y - 40}px`, width: '380px' }"
-  >
-    <div class="bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-200/60 overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-slate-900 animate-pulse"></div>
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Dictionary</span>
-        </div>
-        <button @click="hide" class="p-1 rounded-full hover:bg-slate-200/50 text-slate-400 transition-colors">
-          <XMarkIcon class="w-4 h-4" />
-        </button>
-      </div>
-
-      <!-- Content -->
-      <div class="p-4 space-y-4">
-        <!-- Input Area -->
-        <div class="relative group">
-          <textarea 
-            v-model="selectedText"
-            rows="2"
-            class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-lg font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-slate-900/5 transition-all resize-none"
-            placeholder="Type or select text..."
-          ></textarea>
-          <button 
-            @click="copySelected"
-            class="absolute right-2 bottom-2 p-2 rounded-lg bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-slate-900 transition-all opacity-0 group-hover:opacity-100"
-          >
-            <DocumentDuplicateIcon class="w-4 h-4" />
-          </button>
-        </div>
-
-        <!-- Mode Toggles -->
-        <div class="flex gap-1 bg-slate-100 p-1 rounded-xl">
-          <button 
-            v-for="m in (['word', 'phrase', 'sentence'] as const)" 
-            :key="m"
-            @click="setMode(m)"
-            class="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-tight rounded-lg transition-all"
-            :class="mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
-          >
-            {{ m }}
-          </button>
-        </div>
-
-        <!-- Translation Result -->
-        <div class="min-h-[80px] bg-slate-50/50 rounded-xl p-4 border border-slate-100/50">
-          <div v-if="translateError" class="text-xs text-red-500 flex items-center gap-1">
-            <span>Please configure API Key in settings</span>
+  <Transition name="quick-fade">
+    <div
+      v-if="visible || props.pinned"
+      ref="root"
+      class="fixed z-50 transition-all duration-300"
+      :style="props.pinned ? { right: '1.5rem', top: '6rem', width: '380px' } : { left: `${x - 190}px`, top: `${y - 40}px`, width: '380px' }"
+    >
+      <div class="bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-200/60 overflow-hidden">
+        <!-- Header -->
+        <div class="px-4 py-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-slate-900 animate-pulse"></div>
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">{{ t.title }}</span>
           </div>
-          <div v-else class="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
-            {{ translation || 'Waiting for input...' }}
+          <button @click="hide" class="p-1 rounded-full hover:bg-slate-200/50 text-slate-400 transition-colors">
+            <XMarkIcon class="w-4 h-4" />
+          </button>
+        </div>
+
+        <!-- Content -->
+        <div class="p-4 space-y-4">
+          <!-- Input Area -->
+          <div class="relative group">
+            <textarea 
+              v-model="selectedText"
+              rows="2"
+              class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-lg font-bold text-slate-900 placeholder:text-slate-300 focus:ring-2 focus:ring-slate-900/5 transition-all resize-none"
+              :placeholder="t.placeholder"
+            ></textarea>
+            <button 
+              @click="copySelected"
+              class="absolute right-2 bottom-2 p-2 rounded-lg bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-slate-900 transition-all opacity-0 group-hover:opacity-100"
+            >
+              <DocumentDuplicateIcon class="w-4 h-4" />
+            </button>
           </div>
-        </div>
 
-        <!-- Note Input -->
-        <div class="relative">
-          <input 
-            v-model="note"
-            class="w-full h-10 bg-white border border-slate-200 rounded-xl px-4 text-sm focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all"
-            placeholder="Add a personal note..."
-          />
-        </div>
+          <!-- Instant Translation -->
+          <div class="px-2">
+            <div v-if="translateError" class="text-xs text-red-500 flex items-center gap-1">
+              <span>{{ t.errorKey }}</span>
+            </div>
+            <div v-else class="text-slate-700 text-sm leading-relaxed whitespace-pre-line font-medium">
+              {{ translation || t.waiting }}
+            </div>
+          </div>
 
-        <!-- Action Buttons -->
-        <div class="flex gap-3 pt-2">
-          <button 
-            @click="handleSave"
-            class="flex-1 h-11 bg-slate-100 text-slate-900 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-200 transition-all active:scale-[0.98]"
-          >
-            <BookmarkIcon class="w-4 h-4" />
-            Save
-          </button>
-          <button 
-            @click="handleAnalyse"
-            class="flex-[1.5] h-11 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all active:scale-[0.98]"
-          >
-            <SparklesIcon class="w-4 h-4" />
-            AI Analyse
-          </button>
+          <!-- Note Input -->
+          <div class="relative">
+            <input 
+              v-model="note"
+              class="w-full h-10 bg-white border border-slate-200 rounded-xl px-4 text-sm focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all"
+              :placeholder="t.notePlaceholder"
+            />
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3 pt-2">
+            <button 
+              @click="handleSave"
+              class="flex-1 h-11 bg-slate-100 text-slate-900 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-200 transition-all active:scale-[0.98]"
+            >
+              <BookmarkIcon class="w-4 h-4" />
+              {{ t.save }}
+            </button>
+            <button 
+              @click="handleAnalyse"
+              class="flex-[1.5] h-11 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all active:scale-[0.98]"
+            >
+              <SparklesIcon class="w-4 h-4" />
+              {{ t.analyze }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
-<style scoped></style>
+<style scoped>
+.quick-fade-enter-active,
+.quick-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.quick-fade-enter-from,
+.quick-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+}
+</style>
