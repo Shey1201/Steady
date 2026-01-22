@@ -124,7 +124,7 @@ export const useCorpusStore = defineStore("corpus", {
 
       return id;
     },
-    async triggerBackgroundAnalysis(id: string, text: string, context: string, type: CorpusType) {
+    async triggerBackgroundAnalysis(id: string, text: string, context: string, _type: CorpusType) {
       const ui = useUiStore();
       try {
         const result = await generateAnalysis(text, context, ui.language);

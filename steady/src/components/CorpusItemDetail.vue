@@ -2,13 +2,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/vue";
 import { useCorpusStore, type CorpusItem } from "../stores/corpus";
-import { useUiStore } from "../stores/ui";
 import { CheckCircleIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps<{ item: CorpusItem }>();
 const emit = defineEmits<{ (e: "close"): void, (e: "start", payload: { type: string, text: string }): void }>();
 const store = useCorpusStore();
-const ui = useUiStore();
+// ui is unused
 
 const note = ref(props.item.note || "");
 const isDirty = computed(() => note.value !== (props.item.note || ""));
