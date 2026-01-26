@@ -1,15 +1,15 @@
-import { withEdgeErrorHandler } from '../lib/wrapper';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { withErrorHandler } from '../lib/wrapper';
 
-async function handler(req: Request) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const body = await req.json();
-  const { email, password } = body;
+  const { email, password } = req.body || {};
 
   if (!email || !password) {
-    return new Response(JSON.stringify({ error: 'Email and password are required' }), { status: 400 });
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
   // MOCK: Return success without DB
@@ -20,10 +20,7 @@ async function handler(req: Request) {
     name: email.split('@')[0],
   };
 
-  return new Response(JSON.stringify({ token, user }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
+  return res.status(200).json({ token, user });
 }
 
-export default withEdgeErrorHandler(handler);
+export default withErrorHandler(handler);
