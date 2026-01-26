@@ -4,6 +4,7 @@ import { CheckIcon, ChevronUpDownIcon, Cog6ToothIcon, PencilIcon, TrashIcon, XMa
 import { ref, computed } from "vue";
 import { useUiStore } from "../stores/ui";
 import { useLibraryStore } from "../stores/library";
+import { api } from "../services/api";
 
 const ui = useUiStore();
 const lib = useLibraryStore();
@@ -61,6 +62,10 @@ const t = computed(() => {
     deleteCategory: isZh ? '删除分类' : 'Delete Category',
     categoryExists: isZh ? '分类已存在' : 'Category already exists',
     categoryInUse: isZh ? '分类正在使用中' : 'Category in use',
+    extract: isZh ? '提取' : 'Extract',
+    invalidUrl: isZh ? '无效的 URL，请输入正确的文章链接' : 'Invalid URL. Please enter a valid article link.',
+    extractFailed: isZh ? '内容提取失败，请检查链接或手动复制' : 'Content extraction failed. Please check the URL or copy text manually.',
+    serverError: isZh ? '服务器无法访问该链接' : 'Server could not access this link',
   };
 });
 
@@ -103,7 +108,7 @@ const editInput = ref<HTMLInputElement | null>(null);
 function createNewCategory() {
   if (newCategoryName.value.trim()) {
     if (lib.categories.some(c => c.name.toLowerCase() === newCategoryName.value.trim().toLowerCase())) {
-        alert(t.value.categoryExists);
+        ui.showNotification(t.value.categoryExists, 'warning');
         return;
     }
     lib.createCategory(newCategoryName.value.trim(), newCategoryDesc.value.trim());
@@ -152,7 +157,7 @@ function saveEdit() {
     
     if (newName && newName !== oldName) {
          if (!lib.renameCategory(oldName, newName)) {
-             alert(t.value.categoryExists);
+             ui.showNotification(t.value.categoryExists, 'warning');
              // Don't close edit mode so user can fix it? Or just alert and keep editing?
              // For now, let's keep editing mode.
              return; 
@@ -179,10 +184,48 @@ const wordCount = computed(() => {
   return text.value.trim().split(/\s+/).length;
 });
 
+const isExtracting = ref(false);
+
+function isValidUrl(string: string) {
+  try {
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function extractContent() {
+  if (!url.value) return;
+  
+  if (!isValidUrl(url.value)) {
+     ui.showNotification(t.value.invalidUrl, 'error');
+     return;
+  }
+
+  isExtracting.value = true;
+  try {
+    const data = await api.get<{title: string, content: string, summary: string}>(`/read-url?url=${encodeURIComponent(url.value)}`);
+    if (data) {
+      if (data.title) title.value = data.title;
+      if (data.content) text.value = data.content;
+    }
+  } catch (e: any) {
+    console.error(e);
+    let msg = e.message || "Unknown error";
+    if (msg.includes("Internal Server Error") || msg.includes("500")) {
+        msg = t.value.extractFailed;
+    }
+    ui.showNotification(t.value.importTitle + ": " + msg, 'error');
+  } finally {
+    isExtracting.value = false;
+  }
+}
+
 async function submit() {
   if (mode.value === "text") {
     if (wordCount.value > 5000) {
-      alert(`${t.value.limitWarning} (current: ${wordCount.value}).`);
+      ui.showNotification(`${t.value.limitWarning} (current: ${wordCount.value}).`, 'warning');
       return;
     }
     const id = lib.importFromText(title.value || "Untitled", category.value, text.value.trim(), url.value || undefined);
@@ -190,33 +233,63 @@ async function submit() {
     window.location.hash = `#/article/${id}`;
   } else if (mode.value === "url") {
     if (!url.value) return;
+
+    if (!isValidUrl(url.value)) {
+         ui.showNotification(t.value.invalidUrl, 'error');
+         return;
+    }
+
     isImporting.value = true;
     try {
-      // 在 Tauri 环境中，如果配置了允许，可以直接 fetch。
-      // 此处使用一个简单的 fetch，如果遇到 CORS 限制，会提示用户。
-      const response = await fetch(url.value);
-      const html = await response.text();
+      let content = text.value || "";
+      let articleTitle = title.value || "";
       
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      
-      // 移除脚本和样式
-      doc.querySelectorAll("script, style, nav, footer, header").forEach(el => el.remove());
-      
-      // 获取标题
-      if (!title.value) {
-        title.value = doc.querySelector("h1")?.textContent?.trim() || doc.title || "Imported Article";
+      // Only fetch if content is missing (i.e. not extracted/edited yet)
+      if (!content) {
+        // Try backend API first to avoid CORS
+        try {
+          const data = await api.get<{title: string, content: string, summary: string}>(`/read-url?url=${encodeURIComponent(url.value)}`);
+          if (data.content) {
+            content = data.content;
+            articleTitle = data.title;
+          }
+        } catch (e) {
+          console.warn("Backend read-url failed, falling back to client fetch:", e);
+        }
+      }
+
+      // Fallback to client-side fetch if backend failed or returned empty
+      if (!content) {
+        try {
+          const response = await fetch(url.value);
+          if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+          
+          const html = await response.text();
+          
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          doc.querySelectorAll("script, style, nav, footer, header").forEach(el => el.remove());
+          
+          articleTitle = doc.querySelector("h1")?.textContent?.trim() || doc.title || "Imported Article";
+          
+          const paragraphs = Array.from(doc.querySelectorAll("p"))
+            .map(p => p.textContent?.trim())
+            .filter(p => p && p.length > 50);
+          
+          content = paragraphs.join("\n\n");
+        } catch (clientErr) {
+          console.warn("Client-side fetch failed (likely CORS):", clientErr);
+          // Don't throw here yet, let the check below handle it
+        }
       }
       
-      // 提取正文段落
-      const paragraphs = Array.from(doc.querySelectorAll("p"))
-        .map(p => p.textContent?.trim())
-        .filter(p => p && p.length > 50); // 过滤掉太短的段落
-      
-      const content = paragraphs.join("\n\n");
+      if (!title.value) {
+        title.value = articleTitle || "Imported Article";
+      }
       
       if (!content) {
-        throw new Error("Could not extract content from this URL. Please paste text manually.");
+        throw new Error(t.value.extractFailed);
       }
       
       const id = lib.importFromText(title.value, category.value, content, url.value);
@@ -224,7 +297,11 @@ async function submit() {
       window.location.hash = `#/article/${id}`;
     } catch (err: any) {
       console.error(err);
-      alert("Import failed: " + (err.message || "Unknown error"));
+      let msg = err.message || "Unknown error";
+      if (msg.includes("Internal Server Error") || msg.includes("500")) {
+        msg = t.value.extractFailed;
+      }
+      ui.showNotification(t.value.importTitle + ": " + msg, 'error');
     } finally {
       isImporting.value = false;
     }
@@ -240,7 +317,7 @@ async function submit() {
       window.location.hash = `#/article/${id}`;
     } catch (err: any) {
       console.error(err);
-      alert("Import failed: " + (err.message || "Unknown error"));
+      ui.showNotification("Import failed: " + (err.message || "Unknown error"), 'error');
     } finally {
       isImporting.value = false;
     }
@@ -451,14 +528,38 @@ async function submit() {
 
         <div v-if="mode === 'url'">
           <label class="block text-sm font-medium text-slate-700 mb-1">{{ t.url }}</label>
-          <input 
-            v-model="url" 
-            class="w-full h-10 rounded-lg border border-slate-300 px-3 text-blue-600 font-mono text-sm" 
-            :placeholder="t.placeholderUrl"
-          />
-          <p class="mt-2 text-xs text-slate-500">
+          <div class="flex gap-2">
+            <input 
+              v-model="url" 
+              class="flex-1 h-10 rounded-lg border border-slate-300 px-3 text-blue-600 font-mono text-sm" 
+              :placeholder="t.placeholderUrl"
+              @keydown.enter.prevent="extractContent"
+            />
+            <button 
+              @click="extractContent" 
+              :disabled="!url || isExtracting"
+              class="px-4 h-10 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-colors whitespace-nowrap"
+            >
+              {{ isExtracting ? t.processing : t.extract }}
+            </button>
+          </div>
+          <p class="mt-2 text-xs text-slate-500 mb-4">
             * Note: Some websites may block automated access.
           </p>
+
+          <div v-if="text">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+               {{ t.content }}
+               <span class="text-xs font-normal text-slate-500 ml-1">
+                 {{ wordCount }} {{ t.wordCount }} <span v-if="wordCount > 5000" class="text-red-500">({{ t.limitWarning }})</span>
+               </span>
+            </label>
+            <textarea 
+              v-model="text" 
+              class="w-full h-48 rounded-lg border border-slate-300 p-3 text-sm font-mono" 
+              :placeholder="t.placeholderContent"
+            ></textarea>
+          </div>
         </div>
 
         <div v-if="mode === 'clipboard'" class="flex flex-col items-center justify-center py-8 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50">

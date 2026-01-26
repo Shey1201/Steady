@@ -74,20 +74,32 @@ export default defineConfig(async ({ mode }) => {
               // Map URL to handler
               const urlPath = req.url.split('?')[0];
               
-              let handler;
+              let handlerModule;
               // Use dynamic import to avoid load issues
               if (urlPath === '/api/generate') {
-                  handler = (await import('../api/generate')).default;
+                  handlerModule = await import('../api/generate');
               } else if (urlPath === '/api/translate') {
-                  handler = (await import('../api/translate')).default;
-              } else if (urlPath === '/api/chat') {
-                  handler = (await import('../api/chat')).default;
+                  handlerModule = await import('../api/translate');
+              } else if (urlPath === '/api/auth/login') {
+                  handlerModule = await import('../api/auth/login');
+              } else if (urlPath === '/api/auth/register') {
+                  handlerModule = await import('../api/auth/register');
+              } else if (urlPath === '/api/read-url') {
+                  handlerModule = await import('../api/read-url');
               }
               
-              if (handler) {
-                const webReq = await nodeToWebRequest(req);
-                const webRes = await handler(webReq);
-                await sendWebResponse(res, webRes);
+              if (handlerModule) {
+                const method = req.method || 'GET';
+                const handler = handlerModule[method] || handlerModule.default;
+
+                if (handler) {
+                  const webReq = await nodeToWebRequest(req);
+                  const webRes = await handler(webReq);
+                  await sendWebResponse(res, webRes);
+                } else {
+                  console.warn(`No handler found for ${method} ${urlPath}`);
+                  next();
+                }
               } else {
                 next();
               }

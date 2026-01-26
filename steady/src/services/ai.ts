@@ -1,5 +1,5 @@
 
-export async function generateText(prompt: string, maxTokens: number = 1000, jsonMode: boolean = false): Promise<string> {
+export async function generateText(prompt: string, maxTokens: number = 1000, jsonMode: boolean = false, task: "translation" | "summary" | "analysis" | "chat" | "coding" = "analysis"): Promise<string> {
   // Uses local proxy or relative path if deployed on same domain
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
   const endpoint = `${apiBase}/generate`;
@@ -13,7 +13,8 @@ export async function generateText(prompt: string, maxTokens: number = 1000, jso
       body: JSON.stringify({
         prompt,
         maxTokens,
-        jsonMode
+        jsonMode,
+        task
       })
     });
 
@@ -79,12 +80,12 @@ export async function generateQuickMeaning(text: string, context: string, langua
       "essential": {
         "meaning": "Core meaning in ${isZh ? 'Chinese' : 'English'}",
         "definition": "English definition",
-        "gist": "A 15-word summary of the meaning${context ? ' in this context' : ''}"
+        "gist": "A 15-word summary of the meaning${context ? ' in this context' : ''} in ${isZh ? 'Chinese' : 'English'}"
       }
     }
   }`;
   
-  const result = await generateText(prompt, 500, true);
+  const result = await generateText(prompt, 500, true, "summary");
   const data = parseAiJson(result);
   analysisCache.set(key, data);
   return data;
@@ -106,33 +107,34 @@ export async function generateDeepAnalysis(text: string, context: string, langua
   Previous analysis: ${JSON.stringify(quickResult)}
   Return a strictly valid JSON object with NO markdown formatting.
   CRITICAL INSTRUCTIONS:
-  1. NO filler words (e.g. "The word means..."). Use bullet points or short phrases.
-  2. Logic Graph must be symbolic arrows (e.g. "A -> B -> C").
-  3. NO Etymology or History.
-  4. NO Quiz/Challenge.
-  5. ONLY ONE best Mnemonic.
+  1. Output language for explanations: ${isZh ? 'Chinese (Simplified)' : 'English'}.
+  2. NO filler words (e.g. "The word means..."). Use bullet points or short phrases.
+  3. Logic Graph must be symbolic arrows (e.g. "A -> B -> C").
+  4. NO Etymology or History.
+  5. NO Quiz/Challenge.
+  6. ONLY ONE best Mnemonic.
   
   {
     "fullAiReport": {
       "contextAnalysis": {
         "interpretation": "Direct interpretation in ${isZh ? 'Chinese' : 'English'} (Max 1 sentence)",
-        "breakdown": "Brief sentence structure breakdown (Max 1 sentence)",
+        "breakdown": "Brief sentence structure breakdown in ${isZh ? 'Chinese' : 'English'} (Max 1 sentence)",
         "logicGraph": "Symbolic logic flow (e.g. Context -> Tone -> Implication)"
       },
       "syntax": {
         "collocations": ["collocation 1", "collocation 2"],
-        "usage": "One key usage note"
+        "usage": "One key usage note in ${isZh ? 'Chinese' : 'English'}"
       },
       "corpus": {
         "synonyms": ["synonym 1", "synonym 2"],
-        "comparison": "Brief nuance comparison",
-        "mnemonic": "One strong memory aid (Association or Root)",
-        "tag": "One word tag"
+        "comparison": "Brief nuance comparison in ${isZh ? 'Chinese' : 'English'}",
+        "mnemonic": "One strong memory aid in ${isZh ? 'Chinese' : 'English'}",
+        "tag": "One word tag in ${isZh ? 'Chinese' : 'English'}"
       }
     }
   }`;
 
-  const result = await generateText(prompt, 1500, true);
+  const result = await generateText(prompt, 1500, true, "analysis");
   return parseAiJson(result);
 }
 

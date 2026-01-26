@@ -1,9 +1,5 @@
 import { defineStore } from "pinia";
-
-interface User {
-  email: string;
-  name?: string;
-}
+import { authService, type User } from "../services/auth";
 
 export const useUserStore = defineStore("user", {
   state: () => ({
@@ -19,14 +15,32 @@ export const useUserStore = defineStore("user", {
     }
   }),
   actions: {
-    login(email: string) {
-      // 模拟登录逻辑
-      this.user = { email, name: email.split("@")[0] };
-      this.isAuthenticated = true;
-      // Mock fetching user settings
-      this.wechat.isBound = email.includes("wechat");
+    async login(email: string, password: string) {
+      try {
+        const user = await authService.login(email, password);
+        this.user = user;
+        this.isAuthenticated = true;
+        // Mock fetching user settings or fetch real settings if backend supports it
+        this.wechat.isBound = email.includes("wechat");
+        return true;
+      } catch (error) {
+        console.error("Login failed:", error);
+        throw error;
+      }
+    },
+    async register(email: string, password: string, name?: string) {
+      try {
+        const user = await authService.register(email, password, name);
+        this.user = user;
+        this.isAuthenticated = true;
+        return true;
+      } catch (error) {
+        console.error("Registration failed:", error);
+        throw error;
+      }
     },
     logout() {
+      authService.logout();
       this.user = null;
       this.isAuthenticated = false;
       this.wechat.isBound = false;

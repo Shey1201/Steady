@@ -1,74 +1,49 @@
+import { generateText, streamText } from 'ai';
+import { z } from 'zod';
+import { aiProvider, selectModel } from './lib/models';
+import { handleApiError } from './lib/wrapper';
 
-export const config = {
-  runtime: 'edge',
-};
+// Allow streaming responses to run longer
+export const maxDuration = 30;
 
-export default async function handler(req: Request) {
-  if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
-  }
+const GenerateSchema = z.object({
+  prompt: z.string().min(1, "Prompt cannot be empty"),
+  maxTokens: z.number().int().min(1).max(4096).optional().default(1000),
+  temperature: z.number().min(0).max(2).optional().default(0.7),
+  stream: z.boolean().optional().default(false),
+  task: z.enum(['translation', 'summary', 'analysis', 'chat', 'coding']).optional().default('analysis'),
+});
 
+export async function POST(request: Request) {
   try {
-    const { prompt, maxTokens, jsonMode } = await req.json();
+    const body = await request.json();
+    const { prompt, maxTokens, temperature, stream, task } = GenerateSchema.parse(body);
 
-    const apiKey = process.env.AI_API_KEY;
-    const baseURL = process.env.AI_BASE_URL;
-    const model = process.env.AI_MODEL || 'gpt-3.5-turbo';
+    const modelName = selectModel(task);
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Server configuration error: Missing AI_API_KEY' }), { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
+    if (stream) {
+      const result = streamText({
+        model: aiProvider.chat(modelName),
+        messages: [{ role: 'user', content: prompt }],
+        temperature: temperature,
+        maxOutputTokens: maxTokens,
+      });
+
+      return result.toTextStreamResponse();
+    } else {
+      const result = await generateText({
+        model: aiProvider.chat(modelName),
+        messages: [{ role: 'user', content: prompt }],
+        temperature: temperature,
+        maxOutputTokens: maxTokens,
+        // mode: jsonMode ? 'json' : 'text', // Vercel AI SDK handles json mode differently in newer versions or via prompt
+      });
+
+      return new Response(JSON.stringify({ text: result.text }), {
+        headers: { 'Content-Type': 'application/json' },
       });
     }
-
-    // Ensure endpoint ends with /chat/completions
-    let endpoint = baseURL || "https://api.openai.com/v1";
-    if (!endpoint.endsWith("/chat/completions")) {
-        endpoint = `${endpoint.replace(/\/+$/, "")}/chat/completions`;
-    }
-
-    const body: any = {
-      model: model,
-      messages: [
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: maxTokens || 1000,
-    };
-
-    if (jsonMode) {
-      body.response_format = { type: "json_object" };
-    }
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return new Response(JSON.stringify({ error: `AI Provider Error: ${response.status}`, details: errText }), { 
-        status: response.status,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || "";
-
-    return new Response(JSON.stringify({ text }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

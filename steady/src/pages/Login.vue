@@ -5,18 +5,33 @@ import { useRouter } from "vue-router";
 
 const email = ref("");
 const password = ref("");
+const name = ref("");
+const isRegister = ref(false);
 const userStore = useUserStore();
 const router = useRouter();
 const isLoading = ref(false);
+const errorMsg = ref("");
 
-async function handleLogin() {
-  if (!email.value) return;
+async function handleSubmit() {
+  if (!email.value || !password.value) return;
+  if (isRegister.value && !name.value) return;
+  
   isLoading.value = true;
-  // 模拟网络延迟
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  userStore.login(email.value);
-  router.push("/");
-  isLoading.value = false;
+  errorMsg.value = "";
+  
+  try {
+    if (isRegister.value) {
+      await userStore.register(email.value, password.value, name.value);
+    } else {
+      await userStore.login(email.value, password.value);
+    }
+    router.push("/");
+  } catch (error: any) {
+    console.error(error);
+    errorMsg.value = error.message || (isRegister.value ? "Registration failed" : "Login failed");
+  } finally {
+    isLoading.value = false;
+  }
 }
 
 async function handleWeChatLogin() {
@@ -34,11 +49,26 @@ async function handleWeChatLogin() {
         <div class="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-3xl mb-4 shadow-lg shadow-slate-200">
           S
         </div>
-        <h1 class="text-2xl font-black text-slate-900">Welcome to Steady</h1>
+        <h1 class="text-2xl font-black text-slate-900">{{ isRegister ? 'Create Account' : 'Welcome to Steady' }}</h1>
         <p class="text-slate-500 mt-2 text-center">Minimalist language learning & reading companion</p>
       </div>
 
-      <form @submit.prevent="handleLogin" class="space-y-6">
+      <form @submit.prevent="handleSubmit" class="space-y-6">
+        <div v-if="errorMsg" class="p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">
+          {{ errorMsg }}
+        </div>
+        
+        <div v-if="isRegister">
+          <label class="block text-sm font-bold text-slate-700 mb-2 ml-1">Name</label>
+          <input
+            v-model="name"
+            type="text"
+            required
+            placeholder="Your Name"
+            class="w-full h-12 rounded-xl border border-slate-200 px-4 focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 transition-all"
+          />
+        </div>
+
         <div>
           <label class="block text-sm font-bold text-slate-700 mb-2 ml-1">Email Address</label>
           <input
@@ -54,6 +84,7 @@ async function handleWeChatLogin() {
           <input
             v-model="password"
             type="password"
+            required
             placeholder="••••••••"
             class="w-full h-12 rounded-xl border border-slate-200 px-4 focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 transition-all"
           />
@@ -64,7 +95,7 @@ async function handleWeChatLogin() {
           :disabled="isLoading"
           class="w-full h-12 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-lg shadow-slate-200 disabled:bg-slate-400"
         >
-          {{ isLoading ? "Signing in..." : "Sign In" }}
+          {{ isLoading ? (isRegister ? "Creating..." : "Signing in...") : (isRegister ? "Create Account" : "Sign In") }}
         </button>
 
         <div class="relative flex items-center justify-center my-2">
@@ -90,7 +121,10 @@ async function handleWeChatLogin() {
 
       <div class="mt-10 pt-6 border-t border-slate-50 text-center">
         <p class="text-sm text-slate-400">
-          New here? <a href="#" class="text-slate-900 font-bold hover:underline">Create an account</a>
+          {{ isRegister ? 'Already have an account?' : 'New here?' }}
+          <button @click="isRegister = !isRegister" class="text-slate-900 font-bold hover:underline">
+            {{ isRegister ? 'Sign In' : 'Create an account' }}
+          </button>
         </p>
       </div>
     </div>

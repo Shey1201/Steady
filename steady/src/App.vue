@@ -5,6 +5,7 @@ import SettingsModal from "./components/SettingsModal.vue";
 import ImportArticleModal from "./components/ImportArticleModal.vue";
 import QuickLookup from "./components/QuickLookup.vue";
 import AnalysisPanel from "./components/AnalysisPanel.vue";
+import NotificationToast from "./components/NotificationToast.vue";
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useUiStore } from "./stores/ui";
 import { useRoute } from "vue-router";
@@ -80,6 +81,7 @@ watch(() => ui.enableClipboardWatch, (v) => {
       <QuickLookup :pinned="true" :text="ui.quickText" />
     </div>
     <AnalysisPanel />
+    <NotificationToast />
   </div>
 </template>
 

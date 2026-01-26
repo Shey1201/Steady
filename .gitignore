@@ -6,3 +6,5 @@ dist
 steady/node_modules
 steady/dist
 steady/src-tauri/target
+
+/generated/prisma

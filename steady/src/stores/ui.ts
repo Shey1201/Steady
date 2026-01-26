@@ -1,5 +1,12 @@
 import { defineStore } from "pinia";
 
+export interface Notification {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  duration?: number;
+}
+
 export const useUiStore = defineStore("ui", {
   state: () => ({
     showImportModal: false,
@@ -20,8 +27,24 @@ export const useUiStore = defineStore("ui", {
       data: null as any,
       openedFromQuickLookup: false,
     },
+    notifications: [] as Notification[],
   }),
   actions: {
+    showNotification(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration: number = 3000) {
+      const id = Date.now().toString() + Math.random().toString().slice(2);
+      this.notifications.push({ id, message, type, duration });
+      if (duration > 0) {
+        setTimeout(() => {
+          this.removeNotification(id);
+        }, duration);
+      }
+    },
+    removeNotification(id: string) {
+      const index = this.notifications.findIndex(n => n.id === id);
+      if (index !== -1) {
+        this.notifications.splice(index, 1);
+      }
+    },
     openImport() { this.showImportModal = true; },
     closeImport() { this.showImportModal = false; },
     toggleQuickLookup() { this.showQuickLookup = !this.showQuickLookup; },
