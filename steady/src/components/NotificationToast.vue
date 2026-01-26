@@ -17,13 +17,6 @@ const icons = {
   warning: ExclamationTriangleIcon,
 };
 
-const colors = {
-  success: "bg-green-50 text-green-800 border-green-200",
-  error: "bg-red-50 text-red-800 border-red-200",
-  info: "bg-blue-50 text-blue-800 border-blue-200",
-  warning: "bg-amber-50 text-amber-800 border-amber-200",
-};
-
 const iconColors = {
   success: "text-green-500",
   error: "text-red-500",
