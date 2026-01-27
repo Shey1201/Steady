@@ -5,8 +5,8 @@ export type TaskType = 'translation' | 'summary' | 'analysis' | 'chat' | 'coding
 
 // Model definitions
 export const MODELS = {
-  FAST: 'deepseek-chat', // Fast, cheap, good for translation/chat
-  POWERFUL: 'deepseek-chat', // Currently using same model, but prepared for 'deepseek-reasoner' or GPT-4
+  FAST: process.env.AI_MODEL || 'deepseek-chat', // Fast, cheap, good for translation/chat
+  POWERFUL: process.env.AI_MODEL || 'deepseek-chat', // Currently using same model, but prepared for 'deepseek-reasoner' or GPT-4
   CODING: 'deepseek-coder', // Optimized for code
 };
 
@@ -14,7 +14,7 @@ export const MODELS = {
 // In a real scenario, you might have different API keys or Base URLs for different providers
 export const aiProvider = createOpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || '',
-  baseURL: 'https://api.deepseek.com/v1',
+  baseURL: process.env.AI_BASE_URL || 'https://api.deepseek.com/v1',
 });
 
 if (!process.env.DEEPSEEK_API_KEY) {
