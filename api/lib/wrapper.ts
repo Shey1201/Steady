@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { logger } from './logger';
+import { ZodError } from 'zod';
 
 type VercelHandler = (req: VercelRequest, res: VercelResponse) => Promise<any> | any;
 
@@ -25,9 +26,20 @@ export function withErrorHandler(handler: VercelHandler): VercelHandler {
         url: req.url,
       });
 
+      // Handle Zod Validation Errors
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          details: error.errors,
+          requestId: req.headers['x-vercel-id'] || 'unknown',
+        });
+      }
+
       // Determine status code
       const statusCode = error.statusCode || error.status || 500;
-      const message = statusCode === 500 ? 'Internal Server Error' : error.message;
+      // Allow specific error messages to pass through if they are safe/intentional
+      const isSafeError = error.expose || statusCode < 500;
+      const message = (statusCode === 500 && !isSafeError) ? 'Internal Server Error' : error.message;
 
       return res.status(statusCode).json({
         error: message,

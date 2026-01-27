@@ -21,6 +21,15 @@ if (!process.env.DEEPSEEK_API_KEY) {
   console.warn("WARNING: DEEPSEEK_API_KEY is not set. AI features will fail.");
 }
 
+export function checkApiKey() {
+  if (!process.env.DEEPSEEK_API_KEY) {
+    const error: any = new Error("DeepSeek API Key is missing in server environment variables");
+    error.status = 500;
+    error.expose = true; // Let wrapper show this message
+    throw error;
+  }
+}
+
 /**
  * Selects the best model based on the task type.
  * This logic allows for cost/performance optimization without changing client code.

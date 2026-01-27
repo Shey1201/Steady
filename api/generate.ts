@@ -1,6 +1,6 @@
 import { generateText, streamText } from 'ai';
 import { z } from 'zod';
-import { aiProvider, selectModel } from './lib/models';
+import { aiProvider, selectModel, checkApiKey } from './lib/models';
 import { handleApiError } from './lib/wrapper';
 
 // Allow streaming responses to run longer
@@ -16,6 +16,8 @@ const GenerateSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    checkApiKey();
+
     const body = await request.json();
     const { prompt, maxTokens, temperature, stream, task } = GenerateSchema.parse(body);
 
