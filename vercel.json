@@ -1,4 +1,10 @@
 {
-  "outputDirectory": "steady/dist",
-  "framework": "vite"
+  "outputDirectory": "apps/web/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/apps/api/$1"
+    }
+  ]
 }

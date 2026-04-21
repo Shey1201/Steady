@@ -1,48 +1,135 @@
 # Steady
 
-**Steady** 是一个 **AI 驱动的深度阅读与语言学习助手**。它旨在帮助用户在阅读外语文章（目前主要支持英语）时，通过 AI 辅助降低认知负担，提供即时的深度分析、词汇解析和知识点总结，从而实现“心流”般的阅读体验。
+> AI 驱动的深度阅读与语言学习助手，面向外语文章阅读场景。  
+> Stop switching tabs. Start reading with flow.
 
-项目采用 **Monorepo** 结构，同时包含 Web 端（Vercel 部署）和桌面端（Tauri 封装）能力。
+![Steady product overview](./assets/readme/steady_info.png)
+
+---
+
+## 产品理念
+
+Steady 建立在一个简单信念上：
+
+> 语言学习中的帮助，应该在正确的时间、正确的位置，以刚刚好的信息量出现。
+
+不太多。  
+不太少。  
+刚好足够让阅读继续向前。
+
+---
+
+## 为什么做 Steady？
+
+外语文章阅读很容易被打断。
+
+你从一篇文章开始，接着跳到词典，再打开翻译工具，然后搜索语法解释，最后把有用的词句复制到笔记里。等这些动作做完，阅读的连贯感也消失了。
+
+**Steady 想解决的就是这个问题。**
+
+它把**阅读、查词、理解、沉淀、复习**连接成一个连续流程，让用户在保持专注的同时，仍然能得到必要的语言帮助。
+
+## Steady 有什么不同？
+
+Steady **不只是词典**，也**不只是文章阅读器**。
+
+它围绕一个核心想法设计：
+
+> 阅读应该保持沉浸，辅助应该基于上下文。
+
+这意味着：
+
+- 用户在安静、低干扰的界面中阅读
+- 单词、短语、长难句可以在当前页面内快速解释
+- AI 解释基于真实文章语境，而不是孤立释义
+- 有价值的词句会和来源句子、文章上下文一起保存
+- 收集到的内容可以进入后续复习流程
+
+---
+
+## 核心流程
+
+1. 导入或打开一篇文章
+2. 在沉浸式阅读器中阅读
+3. 选中单词、短语或句子进行快速查词
+4. 需要时展开更深入的 AI 分析
+5. 保存有价值的生词和语境
+6. 之后回到复习流程中重复接触
+
+---
 
 ## 核心功能
 
-### 📖 沉浸式阅读 (Immersive Reading)
-*   **多模式导入**：支持手动粘贴文本、剪贴板自动识别、URL 链接抓取（自动去除广告和杂乱信息，智能提取正文）。
-*   **阅读界面**：极简设计的阅读器，支持分段对照、难词高亮。
+### 沉浸式阅读
 
-### ⚡ 快速查词 (Quick Lookup)
-*   **跨平台任意取词**：(桌面版) 支持系统级划词或剪贴板监听，打破应用边界，在任何软件中复制即可即时获取释义。
-*   **极简交互**：在阅读过程中选中单词或短语即可唤起轻量级查词面板，不打断阅读心流。
-*   **渐进式加载**：优先展示核心释义，需要时可展开查看 AI 深度解析或详细字典条目。
-*   **上下文感知**：结合文章上下文提供精准释义，而非生硬的字典定义。
+提供安静、轻量的阅读界面，减少干扰，让用户专注于文章本身。
 
-### 🤖 AI 智能分析 (AI Analysis)
-*   **深度解析 (Deep Analysis)**：对文章或段落进行深层次解读，包括主旨概括、语法分析、文化背景解读。
-*   **快速释义 (Quick Meaning)**：选中单词或长难句，AI 即时提供上下文相关的精准释义，而非生硬的字典定义。
-*   **智能模型路由**：后端根据任务复杂度动态选择模型（如 DeepSeek），兼顾响应速度与分析质量。
+### 上下文查词
 
-### 📚 语料库与生词本 (Corpus & Library)
-*   **生词管理**：在阅读中一键收藏生词，自动关联例句和原文语境。
-*   **复习系统**：提供系统性的复习会话，帮助巩固记忆。
+对选中的单词、短语和长难句提供快速解释，解释会结合周围语境，而不是只给孤立词典义。
 
-## 技术栈 (Tech Stack)
+### AI 深度理解
 
-### 前端 (Frontend)
-*   **框架**：Vue 3 (Composition API) + TypeScript
-*   **构建工具**：Vite
-*   **状态管理**：Pinia + pinia-plugin-persistedstate (持久化存储)
-*   **UI 库**：Tailwind CSS (样式), Headless UI (无障碍组件), Heroicons (图标)
-*   **桌面封装**：Tauri v2 (Rust)
+不止于翻译，还可以辅助生成文章总结、语法说明、主题分析、文化背景、语气和隐含含义。
 
-### 后端 (Backend / Serverless)
-*   **运行时**：Vercel Serverless Functions (Node.js/TypeScript)
-*   **API 路径**：`/api/*` (处理 AI 生成、URL 解析、翻译等)
-*   **AI SDK**：Vercel AI SDK, Google Generative AI (部分集成)
-*   **工具库**：Cheerio (网页解析), Prisma (数据库 ORM - *配置中*)
+### 生词沉淀
+
+保存生词时同时保留来源句子、文章上下文和语境中的含义。
+
+### 复习闭环
+
+把阅读中产生的内容转化为可复用的学习资料，通过复习和重复接触形成长期积累。
+
+### 跨平台支持
+
+- **Web**：承载核心阅读和学习流程
+- **Desktop (Tauri)**：承载剪贴板、跨应用阅读辅助等系统级能力
+
+### Serverless AI 后端
+
+通过 Serverless API 管理 AI 生成、翻译、认证、文章解析和后续数据访问。
+
+---
+
+## 设计原则
+
+### 阅读优先
+
+任何功能都不应该破坏主要阅读体验。
+
+### 上下文优先
+
+释义和解释应该基于文章语境，而不是脱离上下文。
+
+### 渐进展示
+
+先展示最关键的答案，再允许用户按需展开深度分析。
+
+### 平台边界清晰
+
+Web 能力和桌面端系统能力要保持清晰边界，避免互相耦合。
+
+---
+
+## 技术栈
+
+- **Frontend:** Vue 3、TypeScript、Vite、Pinia、Tailwind CSS
+- **Desktop:** Tauri v2、Rust
+- **Backend:** Vercel Serverless Functions、Node.js、TypeScript
+- **AI Layer:** Vercel AI SDK、OpenAI-compatible providers、Google Generative AI
+- **Data Layer:** Prisma-ready structure
+- **Testing:** Vitest
+
+---
 
 ## 快速开始
 
-> 下面命令默认工作目录为项目根目录。
+### 环境要求
+
+- Node.js 18+
+- npm
+- 桌面端开发需要 Rust 和对应平台构建工具
+- 部署需要 Vercel 账号
 
 ### 安装依赖
 
@@ -50,30 +137,64 @@
 npm install
 ```
 
-### 启动前端开发服务器
+### 配置环境变量
+
+复制 `.env.example` 为 `.env`，并填入需要的密钥：
+
+```bash
+GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_key
+DASHSCOPE_API_KEY=your_dashscope_key
+DEEPSEEK_API_KEY=your_deepseek_key
+```
+
+### 启动 Web 应用
 
 ```bash
 npm run dev
 ```
 
-默认会在浏览器打开 Vite 开发服务器；你也可以在 Tauri 模式下运行。
-
-### 以 Tauri 方式运行（桌面应用）
+### 启动桌面端
 
 ```bash
 npm run tauri dev
 ```
 
-构建桌面安装包（实际命令需根据本机 Tauri 环境调整）：
-
-```bash
-npm run tauri build
-```
-
-### 生产构建
-
-仅构建前端产物：
+### 构建
 
 ```bash
 npm run build
 ```
+
+### 测试
+
+```bash
+npm test
+```
+
+---
+
+## 项目文档
+
+- [文档总览](./docs/README.md)
+- [产品说明](./docs/PRODUCT.md)
+- [架构说明](./docs/ARCHITECTURE.md)
+- [开发指南](./docs/DEVELOPMENT.md)
+- [环境变量](./docs/ENVIRONMENT.md)
+- [API 文档](./docs/API.md)
+- [部署指南](./docs/DEPLOYMENT.md)
+
+---
+
+## 当前状态
+
+Steady 仍在积极开发中。
+
+当前版本重点验证这一闭环：
+
+**Read -> Understand -> Save -> Review**
+
+---
+
+## License
+
+No license has been specified yet.

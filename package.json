@@ -1,13 +1,17 @@
 {
   "name": "steady-root",
   "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/desktop",
+    "packages/*"
+  ],
   "scripts": {
-    "postinstall": "cd steady && npm install",
-    "dev": "cd steady && npm run dev",
-    "build": "cd steady && npm run build",
-    "preview": "cd steady && npm run preview",
-    "tauri": "cd steady && npm run tauri --",
-    "test": "vitest"
+    "dev": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/web run build",
+    "preview": "npm --workspace apps/web run preview",
+    "tauri": "npm --workspace @steady/desktop run tauri --",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.10",

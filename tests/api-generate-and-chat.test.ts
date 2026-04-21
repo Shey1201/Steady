@@ -6,12 +6,13 @@ vi.mock('ai', () => ({
 }));
 
 import { generateText, streamText } from 'ai';
-import { POST as generatePOST } from '../api/generate';
+import { POST as generatePOST } from '../apps/api/generate';
 
 const generateTextMock = generateText as any;
 const streamTextMock = streamText as any;
 
 beforeEach(() => {
+  vi.stubEnv('DEEPSEEK_API_KEY', 'test-key');
   generateTextMock.mockReset();
   streamTextMock.mockReset();
 });

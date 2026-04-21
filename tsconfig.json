@@ -13,6 +13,6 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["node"]
   },
-  "include": ["api/**/*.ts", "vite.config.ts"],
-  "exclude": ["node_modules", "steady"]
+  "include": ["apps/api/**/*.ts", "apps/web/vite.config.ts"],
+  "exclude": ["node_modules", "apps/web/node_modules", "apps/web/dist"]
 }

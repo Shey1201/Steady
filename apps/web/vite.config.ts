@@ -53,8 +53,8 @@ async function sendWebResponse(res: any, webRes: Response) {
 // https://vite.dev/config/
 export default defineConfig(async ({ mode }) => {
   console.log("Loading Vite Config...");
-  // Load env from project root (../)
-  const envDir = path.resolve(__dirname, "..");
+  // Load env from the repository root.
+  const envDir = path.resolve(__dirname, "../..");
   const env = loadEnv(mode, envDir, ""); 
   // Inject into process.env for the handlers
   Object.assign(process.env, env);
@@ -127,7 +127,7 @@ export default defineConfig(async ({ mode }) => {
           }
         : undefined,
       watch: {
-        ignored: ["**/src-tauri/**"],
+        ignored: ["**/../desktop/**"],
       },
     },
   };
